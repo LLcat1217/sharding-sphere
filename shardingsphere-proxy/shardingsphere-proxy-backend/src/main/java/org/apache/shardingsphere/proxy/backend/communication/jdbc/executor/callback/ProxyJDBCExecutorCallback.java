@@ -28,13 +28,14 @@ import org.apache.shardingsphere.infra.executor.sql.execute.result.query.QueryRe
 import org.apache.shardingsphere.infra.executor.sql.execute.result.query.impl.driver.jdbc.type.memory.JDBCMemoryQueryResult;
 import org.apache.shardingsphere.infra.executor.sql.execute.result.query.impl.driver.jdbc.type.stream.JDBCStreamQueryResult;
 import org.apache.shardingsphere.infra.executor.sql.execute.result.update.UpdateResult;
-import org.apache.shardingsphere.proxy.backend.communication.jdbc.connection.BackendConnection;
+import org.apache.shardingsphere.proxy.backend.communication.DatabaseCommunicationEngine;
 import org.apache.shardingsphere.proxy.backend.context.ProxyContext;
 import org.apache.shardingsphere.sql.parser.sql.common.statement.SQLStatement;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.Optional;
 
 /**
@@ -42,7 +43,7 @@ import java.util.Optional;
  */
 public abstract class ProxyJDBCExecutorCallback extends JDBCExecutorCallback<ExecuteResult> {
     
-    private final BackendConnection backendConnection;
+    private final DatabaseCommunicationEngine databaseCommunicationEngine;
     
     private final boolean isReturnGeneratedKeys;
     
@@ -50,10 +51,10 @@ public abstract class ProxyJDBCExecutorCallback extends JDBCExecutorCallback<Exe
     
     private boolean hasMetaData;
     
-    public ProxyJDBCExecutorCallback(final DatabaseType databaseType, final SQLStatement sqlStatement, final BackendConnection backendConnection,
+    public ProxyJDBCExecutorCallback(final DatabaseType databaseType, final SQLStatement sqlStatement, final DatabaseCommunicationEngine databaseCommunicationEngine,
                                      final boolean isReturnGeneratedKeys, final boolean isExceptionThrown, final boolean fetchMetaData) {
         super(databaseType, sqlStatement, isExceptionThrown);
-        this.backendConnection = backendConnection;
+        this.databaseCommunicationEngine = databaseCommunicationEngine;
         this.isReturnGeneratedKeys = isReturnGeneratedKeys;
         this.fetchMetaData = fetchMetaData;
     }
@@ -68,10 +69,10 @@ public abstract class ProxyJDBCExecutorCallback extends JDBCExecutorCallback<Exe
     }
     
     private ExecuteResult executeSQL(final String sql, final Statement statement, final ConnectionMode connectionMode, final boolean withMetadata) throws SQLException {
-        backendConnection.add(statement);
+        databaseCommunicationEngine.add(statement);
         if (execute(sql, statement, isReturnGeneratedKeys)) {
             ResultSet resultSet = statement.getResultSet();
-            backendConnection.add(resultSet);
+            databaseCommunicationEngine.add(resultSet);
             return createQueryResult(resultSet, connectionMode);
         }
         return new UpdateResult(statement.getUpdateCount(), isReturnGeneratedKeys ? getGeneratedKey(statement) : 0L);
@@ -85,7 +86,18 @@ public abstract class ProxyJDBCExecutorCallback extends JDBCExecutorCallback<Exe
     
     private long getGeneratedKey(final Statement statement) throws SQLException {
         ResultSet resultSet = statement.getGeneratedKeys();
-        return resultSet.next() ? resultSet.getLong(1) : 0L;
+        return resultSet.next() ? getGeneratedKeyIfInteger(resultSet) : 0L;
+    }
+    
+    private long getGeneratedKeyIfInteger(final ResultSet resultSet) throws SQLException {
+        switch (resultSet.getMetaData().getColumnType(1)) {
+            case Types.SMALLINT:
+            case Types.INTEGER:
+            case Types.BIGINT:
+                return resultSet.getLong(1);
+            default:
+                return 0L;
+        }
     }
     
     @Override

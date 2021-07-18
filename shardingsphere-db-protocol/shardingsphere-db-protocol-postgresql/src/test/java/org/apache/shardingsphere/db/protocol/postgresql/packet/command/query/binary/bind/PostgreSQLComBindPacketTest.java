@@ -17,22 +17,21 @@
 
 package org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.bind;
 
-import org.apache.shardingsphere.db.protocol.postgresql.constant.PostgreSQLBinaryColumnType;
+import org.apache.shardingsphere.db.protocol.postgresql.constant.PostgreSQLValueFormat;
 import org.apache.shardingsphere.db.protocol.postgresql.packet.command.PostgreSQLCommandPacketType;
-import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.BinaryStatementRegistry;
-import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.PostgreSQLBinaryStatementParameterType;
+import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.PostgreSQLBinaryColumnType;
+import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.PostgreSQLBinaryStatementRegistry;
 import org.apache.shardingsphere.db.protocol.postgresql.payload.PostgreSQLPacketPayload;
+import org.apache.shardingsphere.sql.parser.sql.common.statement.dml.EmptyStatement;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
-import java.sql.SQLException;
 import java.util.Collections;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -44,39 +43,36 @@ public final class PostgreSQLComBindPacketTest {
     
     @Before
     public void init() {
+        PostgreSQLBinaryStatementRegistry.getInstance().register(1);
+        PostgreSQLBinaryStatementRegistry.getInstance().register(1, "sts-id", "select 1", new EmptyStatement(), 
+                Collections.singletonList(PostgreSQLBinaryColumnType.POSTGRESQL_TYPE_INT8));
         when(payload.readInt4()).thenReturn(1);
         when(payload.readStringNul()).thenReturn("");
         when(payload.readStringNul()).thenReturn("sts-id");
         when(payload.readInt2()).thenReturn(1);
-        BinaryStatementRegistry.getInstance().register(1);
     }
     
     @Test
-    public void assertWrite() throws SQLException {
+    public void assertWrite() {
         when(payload.readInt2()).thenReturn(1);
         when(payload.readInt4()).thenReturn(1);
-        when(payload.readInt8()).thenReturn(11L);
-        String sql = "select * from order where id = ? ";
-        BinaryStatementRegistry.getInstance().get(1).register("sts-id", sql, 1, Collections.singletonList(new PostgreSQLBinaryStatementParameterType(PostgreSQLBinaryColumnType.POSTGRESQL_TYPE_INT8)));
         PostgreSQLComBindPacket bindPacket = new PostgreSQLComBindPacket(payload, 1);
         bindPacket.write(payload);
-        assertThat(bindPacket.getSql(), is(sql));
         assertThat(bindPacket.getParameters().size(), is(1));
-        assertThat(bindPacket.isBinaryRowData(), is(true));
+        assertThat(bindPacket.getResultFormats().size(), is(1));
+        assertThat(bindPacket.getResultFormats().get(0), is(PostgreSQLValueFormat.BINARY));
     }
     
     @Test
-    public void assertWriteWithEmptySql() throws SQLException {
+    public void assertWriteWithEmptySql() {
         PostgreSQLComBindPacket bindPacket = new PostgreSQLComBindPacket(payload, 1);
         bindPacket.write(payload);
-        assertNull(bindPacket.getSql());
-        assertThat(bindPacket.getParameters().size(), is(0));
-        assertThat(bindPacket.isBinaryRowData(), is(true));
+        assertThat(bindPacket.getParameters().size(), is(1));
     }
     
     @Test
-    public void getMessageType() throws SQLException {
+    public void getMessageType() {
         PostgreSQLComBindPacket bindPacket = new PostgreSQLComBindPacket(payload, 1);
-        assertThat(bindPacket.getMessageType(), is(PostgreSQLCommandPacketType.BIND.getValue()));
+        assertThat(bindPacket.getIdentifier(), is(PostgreSQLCommandPacketType.BIND_COMMAND));
     }
 }

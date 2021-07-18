@@ -20,8 +20,8 @@ package org.apache.shardingsphere.db.protocol.postgresql.codec;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
-import org.apache.shardingsphere.db.protocol.postgresql.packet.PostgreSQLPacket;
-import org.apache.shardingsphere.db.protocol.postgresql.packet.command.PostgreSQLCommandPacketType;
+import org.apache.shardingsphere.db.protocol.postgresql.packet.identifier.PostgreSQLIdentifierPacket;
+import org.apache.shardingsphere.db.protocol.postgresql.packet.identifier.PostgreSQLMessagePacketType;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentMatchers;
@@ -55,24 +55,23 @@ public final class PostgreSQLPacketCodecEngineTest {
     
     @Test
     public void assertIsInvalidHeader() {
-        assertFalse(new PostgreSQLPacketCodecEngine().isValidHeader(PostgreSQLPacket.PAYLOAD_LENGTH));
+        assertFalse(new PostgreSQLPacketCodecEngine().isValidHeader(4));
     }
     
     @Test
     public void assertDecode() {
         when(byteBuf.markReaderIndex()).thenReturn(byteBuf);
+        when(byteBuf.readableBytes()).thenReturn(51, 47, 0);
         when(byteBuf.readInt()).thenReturn(50);
         List<Object> out = new LinkedList<>();
-        new PostgreSQLPacketCodecEngine().decode(context, byteBuf, out, 54);
+        new PostgreSQLPacketCodecEngine().decode(context, byteBuf, out);
         assertThat(out.size(), is(1));
     }
     
     @Test
     public void assertDecodeWithStickyPacket() {
-        when(byteBuf.markReaderIndex()).thenReturn(byteBuf);
-        when(byteBuf.readInt()).thenReturn(50);
         List<Object> out = new LinkedList<>();
-        new PostgreSQLPacketCodecEngine().decode(context, byteBuf, out, 40);
+        new PostgreSQLPacketCodecEngine().decode(context, byteBuf, out);
         assertTrue(out.isEmpty());
     }
     
@@ -83,12 +82,12 @@ public final class PostgreSQLPacketCodecEngineTest {
         ByteBuf payloadByteBuf = mock(ByteBuf.class);
         when(byteBufAllocator.buffer()).thenReturn(payloadByteBuf);
         when(payloadByteBuf.readableBytes()).thenReturn(50);
-        PostgreSQLPacket actualMessage = mock(PostgreSQLPacket.class);
-        when(actualMessage.getMessageType()).thenReturn(PostgreSQLCommandPacketType.AUTHENTICATION_OK.getValue());
+        PostgreSQLIdentifierPacket actualMessage = mock(PostgreSQLIdentifierPacket.class);
+        when(actualMessage.getIdentifier()).thenReturn(PostgreSQLMessagePacketType.AUTHENTICATION_REQUEST);
         new PostgreSQLPacketCodecEngine().encode(context, actualMessage, byteBuf);
         verify(actualMessage).write(ArgumentMatchers.any());
-        verify(byteBuf).writeByte(PostgreSQLCommandPacketType.AUTHENTICATION_OK.getValue());
-        verify(byteBuf).writeInt(50 + PostgreSQLPacket.PAYLOAD_LENGTH);
+        verify(byteBuf).writeByte(PostgreSQLMessagePacketType.AUTHENTICATION_REQUEST.getValue());
+        verify(byteBuf).writeInt(54);
         verify(byteBuf).writeBytes(payloadByteBuf);
     }
     

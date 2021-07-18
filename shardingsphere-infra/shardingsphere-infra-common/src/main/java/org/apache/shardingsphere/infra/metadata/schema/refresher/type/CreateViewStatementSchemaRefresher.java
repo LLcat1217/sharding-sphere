@@ -23,9 +23,11 @@ import org.apache.shardingsphere.infra.metadata.schema.builder.SchemaBuilderMate
 import org.apache.shardingsphere.infra.metadata.schema.model.TableMetaData;
 import org.apache.shardingsphere.infra.metadata.schema.refresher.SchemaRefresher;
 import org.apache.shardingsphere.infra.metadata.schema.refresher.event.CreateTableEvent;
+import org.apache.shardingsphere.infra.rule.type.DataNodeContainedRule;
 import org.apache.shardingsphere.sql.parser.sql.common.statement.ddl.CreateViewStatement;
 
 import java.util.Collection;
+import java.util.Collections;
 
 /**
  * ShardingSphere schema refresher for create view statement.
@@ -33,11 +35,17 @@ import java.util.Collection;
 public final class CreateViewStatementSchemaRefresher implements SchemaRefresher<CreateViewStatement> {
     
     @Override
-    public void refresh(final ShardingSphereSchema schema, 
-                        final Collection<String> routeDataSourceNames, final CreateViewStatement sqlStatement, final SchemaBuilderMaterials materials) {
+    public void refresh(final ShardingSphereSchema schema, final Collection<String> routeDataSourceNames, final CreateViewStatement sqlStatement, final SchemaBuilderMaterials materials) {
         String viewName = sqlStatement.getView().getTableName().getIdentifier().getValue();
         TableMetaData tableMetaData = new TableMetaData();
         schema.put(viewName, tableMetaData);
-        ShardingSphereEventBus.getInstance().post(new CreateTableEvent(routeDataSourceNames.iterator().next(), viewName, tableMetaData));
+        if (!containsShardingBroadcastTables(viewName, materials)) {
+            ShardingSphereEventBus.getInstance().post(new CreateTableEvent(routeDataSourceNames.iterator().next(), viewName, tableMetaData));
+        }
+    }
+    
+    private boolean containsShardingBroadcastTables(final String tableName, final SchemaBuilderMaterials materials) {
+        return materials.getRules().stream().anyMatch(each -> each instanceof DataNodeContainedRule
+                && ((DataNodeContainedRule) each).containsShardingBroadcastTables(Collections.singletonList(tableName)));
     }
 }

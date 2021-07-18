@@ -18,8 +18,11 @@
 package org.apache.shardingsphere.infra.executor.sql.execute.engine.raw;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.shardingsphere.infra.binder.LogicSQL;
+import org.apache.shardingsphere.infra.config.properties.ConfigurationProperties;
 import org.apache.shardingsphere.infra.executor.kernel.ExecutorEngine;
-import org.apache.shardingsphere.infra.executor.kernel.model.ExecutionGroup;
+import org.apache.shardingsphere.infra.executor.kernel.model.ExecutionGroupContext;
 import org.apache.shardingsphere.infra.executor.sql.execute.engine.SQLExecutorExceptionHandler;
 import org.apache.shardingsphere.infra.executor.sql.execute.engine.raw.callback.RawSQLExecutorCallback;
 import org.apache.shardingsphere.infra.executor.sql.execute.result.ExecuteResult;
@@ -28,7 +31,9 @@ import org.apache.shardingsphere.infra.executor.sql.execute.result.update.Update
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.List;
+import org.apache.shardingsphere.infra.executor.sql.process.ExecuteProcessEngine;
 
 /**
  * Raw executor.
@@ -40,28 +45,37 @@ public final class RawExecutor {
     
     private final boolean serial;
     
+    private final ConfigurationProperties props;
+    
     /**
      * Execute.
      *
-     * @param executionGroups execution groups
+     * @param executionGroupContext execution group context
+     * @param logicSQL logic SQL
      * @param callback raw SQL executor callback
      * @return execute results
      * @throws SQLException SQL exception
      */
-    public Collection<ExecuteResult> execute(final Collection<ExecutionGroup<RawSQLExecutionUnit>> executionGroups, final RawSQLExecutorCallback callback) throws SQLException {
-        // TODO Load query header for first query
-        List<ExecuteResult> results = execute(executionGroups, null, callback);
-        if (null == results || results.isEmpty() || null == results.get(0)) {
-            return Collections.singleton(new UpdateResult(0, 0L));
+    public Collection<ExecuteResult> execute(final ExecutionGroupContext<RawSQLExecutionUnit> executionGroupContext,
+                                             final LogicSQL logicSQL,
+                                             final RawSQLExecutorCallback callback) throws SQLException {
+        try {
+            ExecuteProcessEngine.initialize(logicSQL, executionGroupContext, props);
+            // TODO Load query header for first query
+            List<ExecuteResult> results = execute(executionGroupContext, (RawSQLExecutorCallback) null, callback);
+            ExecuteProcessEngine.finish(executionGroupContext.getExecutionID());
+            return CollectionUtils.isEmpty(results) || Objects.isNull(results.get(0)) ? Collections
+                .singleton(new UpdateResult(0, 0L)) : results;
+        } finally {
+            ExecuteProcessEngine.clean();
         }
-        return results;
     }
     
     @SuppressWarnings("unchecked")
-    private <T> List<T> execute(final Collection<ExecutionGroup<RawSQLExecutionUnit>> executionGroups, 
+    private <T> List<T> execute(final ExecutionGroupContext<RawSQLExecutionUnit> executionGroupContext,
                                 final RawSQLExecutorCallback firstCallback, final RawSQLExecutorCallback callback) throws SQLException {
         try {
-            return executorEngine.execute((Collection) executionGroups, firstCallback, callback, serial);
+            return (List<T>) executorEngine.execute(executionGroupContext, firstCallback, callback, serial);
         } catch (final SQLException ex) {
             SQLExecutorExceptionHandler.handleException(ex);
             return Collections.emptyList();

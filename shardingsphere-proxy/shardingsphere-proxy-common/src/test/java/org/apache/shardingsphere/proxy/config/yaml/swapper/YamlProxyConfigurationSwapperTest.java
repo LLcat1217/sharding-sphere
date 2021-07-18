@@ -17,26 +17,29 @@
 
 package org.apache.shardingsphere.proxy.config.yaml.swapper;
 
-import org.apache.shardingsphere.governance.core.yaml.config.YamlGovernanceCenterConfiguration;
-import org.apache.shardingsphere.governance.core.yaml.config.YamlGovernanceConfiguration;
-import org.apache.shardingsphere.infra.metadata.auth.model.user.Grantee;
-import org.apache.shardingsphere.infra.metadata.auth.builtin.DefaultAuthentication;
-import org.apache.shardingsphere.infra.metadata.auth.model.user.ShardingSphereUser;
-import org.apache.shardingsphere.infra.metadata.auth.builtin.yaml.config.YamlUserRuleConfiguration;
-import org.apache.shardingsphere.infra.metadata.auth.builtin.yaml.config.YamlUserConfiguration;
+import com.google.common.collect.Lists;
+import org.apache.shardingsphere.authority.api.config.AuthorityRuleConfiguration;
+import org.apache.shardingsphere.authority.yaml.config.YamlAuthorityRuleConfiguration;
+import org.apache.shardingsphere.governance.core.yaml.pojo.YamlGovernanceConfiguration;
+import org.apache.shardingsphere.governance.core.yaml.pojo.YamlRegistryCenterConfiguration;
 import org.apache.shardingsphere.infra.config.RuleConfiguration;
 import org.apache.shardingsphere.infra.config.datasource.DataSourceParameter;
-import org.apache.shardingsphere.infra.yaml.config.YamlRuleConfiguration;
-import org.apache.shardingsphere.replicaquery.api.config.ReplicaQueryRuleConfiguration;
-import org.apache.shardingsphere.replicaquery.yaml.config.YamlReplicaQueryRuleConfiguration;
+import org.apache.shardingsphere.infra.metadata.user.Grantee;
+import org.apache.shardingsphere.infra.metadata.user.ShardingSphereUser;
+import org.apache.shardingsphere.infra.metadata.user.ShardingSphereUsers;
+import org.apache.shardingsphere.infra.yaml.config.pojo.YamlRuleConfiguration;
+import org.apache.shardingsphere.infra.yaml.config.pojo.algorithm.YamlShardingSphereAlgorithmConfiguration;
 import org.apache.shardingsphere.proxy.config.ProxyConfiguration;
 import org.apache.shardingsphere.proxy.config.YamlProxyConfiguration;
 import org.apache.shardingsphere.proxy.config.yaml.YamlDataSourceParameter;
 import org.apache.shardingsphere.proxy.config.yaml.YamlProxyRuleConfiguration;
 import org.apache.shardingsphere.proxy.config.yaml.YamlProxyServerConfiguration;
+import org.apache.shardingsphere.readwritesplitting.api.ReadwriteSplittingRuleConfiguration;
+import org.apache.shardingsphere.readwritesplitting.yaml.config.YamlReadwriteSplittingRuleConfiguration;
 import org.junit.Test;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
@@ -57,7 +60,7 @@ public final class YamlProxyConfigurationSwapperTest {
     public void assertSwap() {
         YamlProxyConfiguration yamlProxyConfig = getYamlProxyConfiguration();
         ProxyConfiguration proxyConfig = new YamlProxyConfigurationSwapper().swap(yamlProxyConfig);
-        assertAuthentication(proxyConfig);
+        assertAuthority(proxyConfig);
         assertProxyConfigurationProps(proxyConfig);
         assertSchemaDataSources(proxyConfig);
         assertSchemaRules(proxyConfig);
@@ -79,7 +82,6 @@ public final class YamlProxyConfigurationSwapperTest {
         assertThat(dataSourceParameter.getMaxLifetimeMilliseconds(), is(3L));
         assertThat(dataSourceParameter.getMaxPoolSize(), is(4));
         assertThat(dataSourceParameter.getMinPoolSize(), is(5));
-        assertThat(dataSourceParameter.getMaintenanceIntervalMilliseconds(), is(6L));
         assertTrue(dataSourceParameter.isReadOnly());
     }
     
@@ -92,7 +94,7 @@ public final class YamlProxyConfigurationSwapperTest {
         assertThat(ruleConfigs.size(), is(1));
         RuleConfiguration ruleConfig = ruleConfigs.iterator().next();
         assertNotNull(ruleConfig);
-        assertThat(ruleConfig, instanceOf(ReplicaQueryRuleConfiguration.class));
+        assertThat(ruleConfig, instanceOf(ReadwriteSplittingRuleConfiguration.class));
     }
     
     private void assertProxyConfigurationProps(final ProxyConfiguration proxyConfig) {
@@ -102,13 +104,20 @@ public final class YamlProxyConfigurationSwapperTest {
         assertThat(proxyConfigurationProps.getProperty("key4"), is("value4"));
     }
     
-    private void assertAuthentication(final ProxyConfiguration proxyConfig) {
-        DefaultAuthentication authentication = new DefaultAuthentication(proxyConfig.getUsers());
-        assertNotNull(authentication);
-        Optional<ShardingSphereUser> user = authentication.findUser(new Grantee("user1", ""));
+    private void assertAuthority(final ProxyConfiguration proxyConfig) {
+        Optional<ShardingSphereUser> user = new ShardingSphereUsers(getUsersFromAuthorityRule(proxyConfig.getGlobalRules())).findUser(new Grantee("user1", ""));
         assertTrue(user.isPresent());
         assertThat(user.get().getPassword(), is("pass"));
-        assertNotNull(authentication);
+    }
+
+    private Collection<ShardingSphereUser> getUsersFromAuthorityRule(final Collection<RuleConfiguration> globalRuleConfigs) {
+        for (RuleConfiguration ruleConfig : globalRuleConfigs) {
+            if (ruleConfig instanceof AuthorityRuleConfiguration) {
+                AuthorityRuleConfiguration authorityRuleConfiguration = (AuthorityRuleConfiguration) ruleConfig;
+                return authorityRuleConfiguration.getUsers();
+            }
+        }
+        return Collections.emptyList();
     }
     
     private YamlProxyConfiguration getYamlProxyConfiguration() {
@@ -126,44 +135,21 @@ public final class YamlProxyConfigurationSwapperTest {
         return result;
     }
     
-    private void prepareRules(final YamlProxyRuleConfiguration yamlProxyRuleConfig) {
-        Collection<YamlRuleConfiguration> rules = new LinkedList<>();
-        YamlRuleConfiguration testRuleConfig = new YamlReplicaQueryRuleConfiguration();
-        rules.add(testRuleConfig);
-        when(yamlProxyRuleConfig.getRules()).thenReturn(rules);
+    private void prepareRegistryCenter(final YamlGovernanceConfiguration yamlGovernanceConfig) {
+        YamlRegistryCenterConfiguration registryCenterConfig = mock(YamlRegistryCenterConfiguration.class);
+        when(yamlGovernanceConfig.getRegistryCenter()).thenReturn(registryCenterConfig);
+        when(registryCenterConfig.getType()).thenReturn("typeOne");
+        when(registryCenterConfig.getServerLists()).thenReturn("serverLists1");
+        Properties props = new Properties();
+        props.setProperty("key1", "value1");
+        when(registryCenterConfig.getProps()).thenReturn(props);
+        when(yamlGovernanceConfig.getRegistryCenter()).thenReturn(registryCenterConfig);
     }
-    
-    private void prepareDataSources(final YamlProxyRuleConfiguration yamlProxyRuleConfig) {
-        YamlDataSourceParameter yamlDataSourceParameter = mock(YamlDataSourceParameter.class);
-        when(yamlProxyRuleConfig.getDataSource()).thenReturn(yamlDataSourceParameter);
-        when(yamlDataSourceParameter.getUrl()).thenReturn("url1");
-        when(yamlDataSourceParameter.getUsername()).thenReturn("username1");
-        when(yamlDataSourceParameter.getPassword()).thenReturn("password1");
-        when(yamlDataSourceParameter.getConnectionTimeoutMilliseconds()).thenReturn(1L);
-        when(yamlDataSourceParameter.getIdleTimeoutMilliseconds()).thenReturn(2L);
-        when(yamlDataSourceParameter.getMaxLifetimeMilliseconds()).thenReturn(3L);
-        when(yamlDataSourceParameter.getMaxPoolSize()).thenReturn(4);
-        when(yamlDataSourceParameter.getMinPoolSize()).thenReturn(5);
-        when(yamlDataSourceParameter.getMaintenanceIntervalMilliseconds()).thenReturn(6L);
-        when(yamlDataSourceParameter.isReadOnly()).thenReturn(true);
-        Map<String, YamlDataSourceParameter> dataSources = new HashMap<>(1, 1);
-        dataSources.put("ds1", yamlDataSourceParameter);
-        when(yamlProxyRuleConfig.getDataSources()).thenReturn(dataSources);
-    }
-    
-    private void prepareDataSource(final YamlProxyRuleConfiguration yamlProxyRuleConfig) {
-        YamlDataSourceParameter yamlDataSourceParameter = mock(YamlDataSourceParameter.class);
-        when(yamlProxyRuleConfig.getDataSource()).thenReturn(yamlDataSourceParameter);
-        when(yamlDataSourceParameter.getUrl()).thenReturn("url");
-        when(yamlDataSourceParameter.getUsername()).thenReturn("username");
-        when(yamlDataSourceParameter.getPassword()).thenReturn("password");
-        when(yamlDataSourceParameter.getConnectionTimeoutMilliseconds()).thenReturn(1L);
-        when(yamlDataSourceParameter.getIdleTimeoutMilliseconds()).thenReturn(2L);
-        when(yamlDataSourceParameter.getMaxLifetimeMilliseconds()).thenReturn(3L);
-        when(yamlDataSourceParameter.getMaxPoolSize()).thenReturn(4);
-        when(yamlDataSourceParameter.getMinPoolSize()).thenReturn(5);
-        when(yamlDataSourceParameter.getMaintenanceIntervalMilliseconds()).thenReturn(6L);
-        when(yamlDataSourceParameter.isReadOnly()).thenReturn(true);
+
+    private void prepareProps(final YamlProxyServerConfiguration yamlProxyServerConfig) {
+        Properties props = new Properties();
+        props.setProperty("key4", "value4");
+        when(yamlProxyServerConfig.getProps()).thenReturn(props);
     }
     
     private YamlProxyRuleConfiguration prepareRuleConfigurations(final YamlProxyConfiguration yamlProxyConfig) {
@@ -174,21 +160,40 @@ public final class YamlProxyConfigurationSwapperTest {
         return result;
     }
     
-    private void prepareProps(final YamlProxyServerConfiguration yamlProxyServerConfig) {
-        Properties props = new Properties();
-        props.setProperty("key4", "value4");
-        when(yamlProxyServerConfig.getProps()).thenReturn(props);
+    private void prepareDataSources(final YamlProxyRuleConfiguration yamlProxyRuleConfig) {
+        YamlDataSourceParameter yamlDataSourceParameter = mock(YamlDataSourceParameter.class);
+        when(yamlDataSourceParameter.getUrl()).thenReturn("url1");
+        when(yamlDataSourceParameter.getUsername()).thenReturn("username1");
+        when(yamlDataSourceParameter.getPassword()).thenReturn("password1");
+        when(yamlDataSourceParameter.getConnectionTimeoutMilliseconds()).thenReturn(1L);
+        when(yamlDataSourceParameter.getIdleTimeoutMilliseconds()).thenReturn(2L);
+        when(yamlDataSourceParameter.getMaxLifetimeMilliseconds()).thenReturn(3L);
+        when(yamlDataSourceParameter.getMaxPoolSize()).thenReturn(4);
+        when(yamlDataSourceParameter.getMinPoolSize()).thenReturn(5);
+        when(yamlDataSourceParameter.isReadOnly()).thenReturn(true);
+        Map<String, YamlDataSourceParameter> dataSources = new HashMap<>(1, 1);
+        dataSources.put("ds1", yamlDataSourceParameter);
+        when(yamlProxyRuleConfig.getDataSources()).thenReturn(dataSources);
     }
     
-    private void prepareRegistryCenter(final YamlGovernanceConfiguration yamlGovernanceConfig) {
-        YamlGovernanceCenterConfiguration registryCenterConfig = mock(YamlGovernanceCenterConfiguration.class);
-        when(yamlGovernanceConfig.getRegistryCenter()).thenReturn(registryCenterConfig);
-        when(registryCenterConfig.getType()).thenReturn("typeOne");
-        when(registryCenterConfig.getServerLists()).thenReturn("serverLists1");
-        Properties props = new Properties();
-        props.setProperty("key1", "value1");
-        when(registryCenterConfig.getProps()).thenReturn(props);
-        when(yamlGovernanceConfig.getRegistryCenter()).thenReturn(registryCenterConfig);
+    private void prepareDataSource(final YamlProxyRuleConfiguration yamlProxyRuleConfig) {
+        YamlDataSourceParameter yamlDataSourceParameter = mock(YamlDataSourceParameter.class);
+        when(yamlDataSourceParameter.getUrl()).thenReturn("url");
+        when(yamlDataSourceParameter.getUsername()).thenReturn("username");
+        when(yamlDataSourceParameter.getPassword()).thenReturn("password");
+        when(yamlDataSourceParameter.getConnectionTimeoutMilliseconds()).thenReturn(1L);
+        when(yamlDataSourceParameter.getIdleTimeoutMilliseconds()).thenReturn(2L);
+        when(yamlDataSourceParameter.getMaxLifetimeMilliseconds()).thenReturn(3L);
+        when(yamlDataSourceParameter.getMaxPoolSize()).thenReturn(4);
+        when(yamlDataSourceParameter.getMinPoolSize()).thenReturn(5);
+        when(yamlDataSourceParameter.isReadOnly()).thenReturn(true);
+    }
+    
+    private void prepareRules(final YamlProxyRuleConfiguration yamlProxyRuleConfig) {
+        Collection<YamlRuleConfiguration> rules = new LinkedList<>();
+        YamlRuleConfiguration testRuleConfig = new YamlReadwriteSplittingRuleConfiguration();
+        rules.add(testRuleConfig);
+        when(yamlProxyRuleConfig.getRules()).thenReturn(rules);
     }
     
     private YamlGovernanceConfiguration prepareGovernance(final YamlProxyServerConfiguration yamlProxyServerConfig) {
@@ -199,15 +204,18 @@ public final class YamlProxyConfigurationSwapperTest {
     }
     
     private void prepareAuthentication(final YamlProxyServerConfiguration yamlProxyServerConfig) {
-        Map<String, YamlUserConfiguration> yamlUserConfigurationMap = new HashMap<>(1, 1);
-        YamlUserConfiguration yamlUserConfig = mock(YamlUserConfiguration.class);
-        when(yamlUserConfig.getPassword()).thenReturn("pass");
-        yamlUserConfigurationMap.put("user1", yamlUserConfig);
-        YamlUserRuleConfiguration userRuleConfiguration = mock(YamlUserRuleConfiguration.class);
-        when(userRuleConfiguration.getUsers()).thenReturn(yamlUserConfigurationMap);
-        when(yamlProxyServerConfig.getAuthentication()).thenReturn(userRuleConfiguration);
+        YamlAuthorityRuleConfiguration yamlAuthorityRuleConfig = new YamlAuthorityRuleConfiguration();
+        yamlAuthorityRuleConfig.setUsers(getUsers());
+        YamlShardingSphereAlgorithmConfiguration provider = new YamlShardingSphereAlgorithmConfiguration();
+        provider.setType("test");
+        yamlAuthorityRuleConfig.setProvider(provider);
+        when(yamlProxyServerConfig.getRules()).thenReturn(Collections.singletonList(yamlAuthorityRuleConfig));
     }
-    
+
+    private Collection<String> getUsers() {
+        return Lists.newArrayList("user1@:pass");
+    }
+
     private YamlProxyServerConfiguration getYamlProxyServerConfiguration(final YamlProxyConfiguration yamlProxyConfig) {
         YamlProxyServerConfiguration result = mock(YamlProxyServerConfiguration.class);
         when(yamlProxyConfig.getServerConfiguration()).thenReturn(result);

@@ -19,33 +19,20 @@ package org.apache.shardingsphere.proxy.backend.text.distsql.rdl;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.apache.shardingsphere.distsql.parser.statement.rdl.AlterShardingRuleStatement;
-import org.apache.shardingsphere.distsql.parser.statement.rdl.create.impl.AddResourceStatement;
-import org.apache.shardingsphere.distsql.parser.statement.rdl.AlterReplicaQueryRuleStatement;
-import org.apache.shardingsphere.distsql.parser.statement.rdl.create.impl.CreateReplicaQueryRuleStatement;
-import org.apache.shardingsphere.distsql.parser.statement.rdl.create.impl.CreateShardingRuleStatement;
-import org.apache.shardingsphere.distsql.parser.statement.rdl.drop.impl.DropReplicaQueryRuleStatement;
-import org.apache.shardingsphere.distsql.parser.statement.rdl.drop.impl.DropResourceStatement;
-import org.apache.shardingsphere.distsql.parser.statement.rdl.drop.impl.DropShardingRuleStatement;
+import org.apache.shardingsphere.distsql.parser.statement.rdl.RDLStatement;
+import org.apache.shardingsphere.distsql.parser.statement.rdl.RuleDefinitionStatement;
+import org.apache.shardingsphere.distsql.parser.statement.rdl.create.AddResourceStatement;
+import org.apache.shardingsphere.distsql.parser.statement.rdl.drop.DropResourceStatement;
 import org.apache.shardingsphere.infra.context.metadata.impl.StandardMetaDataContexts;
 import org.apache.shardingsphere.infra.database.type.DatabaseType;
 import org.apache.shardingsphere.proxy.backend.communication.jdbc.connection.BackendConnection;
 import org.apache.shardingsphere.proxy.backend.context.ProxyContext;
 import org.apache.shardingsphere.proxy.backend.text.TextProtocolBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.impl.AddResourceBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.impl.CreateDatabaseBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.impl.CreateReplicaQueryRuleBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.impl.CreateShardingRuleBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.impl.DropDatabaseBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.impl.DropReplicaQueryRuleBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.impl.DropResourceBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.impl.DropShardingRuleBackendHandler;
-import org.apache.shardingsphere.sql.parser.sql.common.statement.SQLStatement;
-import org.apache.shardingsphere.sql.parser.sql.common.statement.ddl.CreateDatabaseStatement;
-import org.apache.shardingsphere.sql.parser.sql.common.statement.ddl.DropDatabaseStatement;
+import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.resource.AddResourceBackendHandler;
+import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.resource.DropResourceBackendHandler;
+import org.apache.shardingsphere.proxy.backend.text.distsql.rdl.rule.RuleDefinitionBackendHandler;
 
 import java.sql.SQLException;
-import java.util.Optional;
 
 /**
  * RDL backend handler factory.
@@ -57,56 +44,30 @@ public final class RDLBackendHandlerFactory {
      * Create new instance of RDL backend handler.
      * 
      * @param databaseType database type
-     * @param sqlStatement SQL statement
+     * @param sqlStatement RDL statement
      * @param backendConnection backend connection
      * @return RDL backend handler
      * @throws SQLException SQL exception
      */
-    public static Optional<TextProtocolBackendHandler> newInstance(final DatabaseType databaseType, final SQLStatement sqlStatement, final BackendConnection backendConnection) throws SQLException {
-        Optional<TextProtocolBackendHandler> result = createRDLBackendHandler(databaseType, sqlStatement, backendConnection);
-        if (result.isPresent()) {
-            checkRegistryCenterExisted(sqlStatement);
-        }
+    public static TextProtocolBackendHandler newInstance(final DatabaseType databaseType, final RDLStatement sqlStatement, final BackendConnection backendConnection) throws SQLException {
+        TextProtocolBackendHandler result = createBackendHandler(databaseType, sqlStatement, backendConnection);
+        checkRegistryCenterExisted(sqlStatement);
         return result;
     }
     
-    private static void checkRegistryCenterExisted(final SQLStatement sqlStatement) throws SQLException {
+    private static void checkRegistryCenterExisted(final RDLStatement sqlStatement) throws SQLException {
         if (ProxyContext.getInstance().getMetaDataContexts() instanceof StandardMetaDataContexts) {
             throw new SQLException(String.format("No Registry center to execute `%s` SQL", sqlStatement.getClass().getSimpleName()));
         }
     }
     
-    private static Optional<TextProtocolBackendHandler> createRDLBackendHandler(final DatabaseType databaseType, final SQLStatement sqlStatement, final BackendConnection backendConnection) {
+    private static TextProtocolBackendHandler createBackendHandler(final DatabaseType databaseType, final RDLStatement sqlStatement, final BackendConnection backendConnection) {
         if (sqlStatement instanceof AddResourceStatement) {
-            return Optional.of(new AddResourceBackendHandler(databaseType, (AddResourceStatement) sqlStatement, backendConnection));
+            return new AddResourceBackendHandler(databaseType, (AddResourceStatement) sqlStatement, backendConnection);
         }
         if (sqlStatement instanceof DropResourceStatement) {
-            return Optional.of(new DropResourceBackendHandler((DropResourceStatement) sqlStatement, backendConnection));
+            return new DropResourceBackendHandler((DropResourceStatement) sqlStatement, backendConnection);
         }
-        if (sqlStatement instanceof CreateDatabaseStatement) {
-            return Optional.of(new CreateDatabaseBackendHandler((CreateDatabaseStatement) sqlStatement));
-        }
-        if (sqlStatement instanceof CreateShardingRuleStatement) {
-            return Optional.of(new CreateShardingRuleBackendHandler((CreateShardingRuleStatement) sqlStatement, backendConnection));
-        }
-        if (sqlStatement instanceof AlterShardingRuleStatement) {
-            return Optional.of(new AlterShardingRuleBackendHandler((AlterShardingRuleStatement) sqlStatement, backendConnection));
-        }
-        if (sqlStatement instanceof CreateReplicaQueryRuleStatement) {
-            return Optional.of(new CreateReplicaQueryRuleBackendHandler((CreateReplicaQueryRuleStatement) sqlStatement, backendConnection));
-        }
-        if (sqlStatement instanceof AlterReplicaQueryRuleStatement) {
-            return Optional.of(new AlterReplicaQueryRuleBackendHandler((AlterReplicaQueryRuleStatement) sqlStatement, backendConnection));
-        }
-        if (sqlStatement instanceof DropReplicaQueryRuleStatement) {
-            return Optional.of(new DropReplicaQueryRuleBackendHandler((DropReplicaQueryRuleStatement) sqlStatement, backendConnection));
-        }
-        if (sqlStatement instanceof DropDatabaseStatement) {
-            return Optional.of(new DropDatabaseBackendHandler((DropDatabaseStatement) sqlStatement));
-        }
-        if (sqlStatement instanceof DropShardingRuleStatement) {
-            return Optional.of(new DropShardingRuleBackendHandler((DropShardingRuleStatement) sqlStatement, backendConnection));
-        }
-        return Optional.empty();
+        return new RuleDefinitionBackendHandler<>((RuleDefinitionStatement) sqlStatement, backendConnection);
     }
 }

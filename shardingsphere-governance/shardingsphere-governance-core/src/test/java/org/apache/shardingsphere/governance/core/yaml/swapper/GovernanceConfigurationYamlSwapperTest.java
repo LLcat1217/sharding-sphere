@@ -17,10 +17,10 @@
 
 package org.apache.shardingsphere.governance.core.yaml.swapper;
 
-import org.apache.shardingsphere.governance.core.yaml.config.YamlGovernanceCenterConfiguration;
-import org.apache.shardingsphere.governance.core.yaml.config.YamlGovernanceConfiguration;
-import org.apache.shardingsphere.governance.repository.api.config.GovernanceCenterConfiguration;
+import org.apache.shardingsphere.governance.core.yaml.pojo.YamlGovernanceConfiguration;
+import org.apache.shardingsphere.governance.core.yaml.pojo.YamlRegistryCenterConfiguration;
 import org.apache.shardingsphere.governance.repository.api.config.GovernanceConfiguration;
+import org.apache.shardingsphere.governance.repository.api.config.RegistryCenterConfiguration;
 import org.junit.Test;
 
 import java.util.Properties;
@@ -42,7 +42,7 @@ public final class GovernanceConfigurationYamlSwapperTest {
     }
     
     private GovernanceConfiguration createGovernanceConfigurationWithoutAdditionalConfigCenterConfiguration() {
-        return new GovernanceConfiguration("logic_schema", new GovernanceCenterConfiguration("TEST", "127.0.0.1:2181", new Properties()), false);
+        return new GovernanceConfiguration("logic_schema", new RegistryCenterConfiguration("TEST", "127.0.0.1:2181", new Properties()), false);
     }
     
     @Test
@@ -58,7 +58,7 @@ public final class GovernanceConfigurationYamlSwapperTest {
     
     private GovernanceConfiguration createGovernanceConfigurationWithAdditionalConfigCenterConfiguration() {
         return new GovernanceConfiguration("logic_schema", 
-                new GovernanceCenterConfiguration("TEST", "127.0.0.1:2181", new Properties()), false);
+                new RegistryCenterConfiguration("TEST", "127.0.0.1:2181", new Properties()), false);
     }
     
     @Test
@@ -97,8 +97,8 @@ public final class GovernanceConfigurationYamlSwapperTest {
         return result;
     }
     
-    private YamlGovernanceCenterConfiguration createYamlRegistryCenterConfiguration() {
-        YamlGovernanceCenterConfiguration result = new YamlGovernanceCenterConfiguration();
+    private YamlRegistryCenterConfiguration createYamlRegistryCenterConfiguration() {
+        YamlRegistryCenterConfiguration result = new YamlRegistryCenterConfiguration();
         result.setType("TEST");
         result.setProps(new Properties());
         result.setServerLists("127.0.0.1:2181");

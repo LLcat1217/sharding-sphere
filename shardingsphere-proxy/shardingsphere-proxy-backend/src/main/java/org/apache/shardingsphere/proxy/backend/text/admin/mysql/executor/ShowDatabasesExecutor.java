@@ -17,22 +17,23 @@
 
 package org.apache.shardingsphere.proxy.backend.text.admin.mysql.executor;
 
-import lombok.Getter;
-import org.apache.shardingsphere.infra.metadata.auth.model.privilege.ShardingSpherePrivilege;
+import java.sql.Types;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedList;
+
+import org.apache.shardingsphere.infra.executor.check.SQLCheckEngine;
 import org.apache.shardingsphere.infra.executor.sql.execute.result.query.QueryResultMetaData;
 import org.apache.shardingsphere.infra.executor.sql.execute.result.query.impl.raw.metadata.RawQueryResultColumnMetaData;
 import org.apache.shardingsphere.infra.executor.sql.execute.result.query.impl.raw.metadata.RawQueryResultMetaData;
 import org.apache.shardingsphere.infra.merge.result.MergedResult;
+import org.apache.shardingsphere.infra.rule.ShardingSphereRule;
 import org.apache.shardingsphere.proxy.backend.communication.jdbc.connection.BackendConnection;
 import org.apache.shardingsphere.proxy.backend.context.ProxyContext;
 import org.apache.shardingsphere.proxy.backend.text.admin.executor.DatabaseAdminQueryExecutor;
 import org.apache.shardingsphere.sharding.merge.dal.common.SingleLocalDataMergedResult;
 
-import java.sql.Types;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.Optional;
+import lombok.Getter;
 
 /**
  * Show databases executor.
@@ -48,22 +49,24 @@ public final class ShowDatabasesExecutor implements DatabaseAdminQueryExecutor {
     }
     
     private Collection<Object> getSchemaNames(final BackendConnection backendConnection) {
-        Optional<ShardingSpherePrivilege> privilege = ProxyContext.getInstance().getMetaDataContexts().getAuthentication().findPrivilege(backendConnection.getGrantee());
-        if (!privilege.isPresent()) {
-            return Collections.emptyList();
-        }
         Collection<Object> result = new LinkedList<>();
         for (String each : ProxyContext.getInstance().getAllSchemaNames()) {
-            if (privilege.get().getDataPrivilege().hasPrivileges(each, Collections.emptyList())) {
+            if (SQLCheckEngine.check(each, getRules(each), backendConnection.getGrantee())) {
                 result.add(each);
             }
         }
         return result;
     }
     
+    private Collection<ShardingSphereRule> getRules(final String schemaName) {
+        Collection<ShardingSphereRule> result;
+        result = new LinkedList<>(ProxyContext.getInstance().getMetaDataContexts().getMetaData(schemaName).getRuleMetaData().getRules());
+        result.addAll(ProxyContext.getInstance().getMetaDataContexts().getGlobalRuleMetaData().getRules());
+        return result;
+    }
+    
     @Override
     public QueryResultMetaData getQueryResultMetaData() {
-        return new RawQueryResultMetaData(
-                Collections.singletonList(new RawQueryResultColumnMetaData("SCHEMATA", "Database", "SCHEMA_NAME", Types.VARCHAR, "VARCHAR", 255, 0)));
+        return new RawQueryResultMetaData(Collections.singletonList(new RawQueryResultColumnMetaData("SCHEMATA", "Database", "SCHEMA_NAME", Types.VARCHAR, "VARCHAR", 255, 0)));
     }
 }

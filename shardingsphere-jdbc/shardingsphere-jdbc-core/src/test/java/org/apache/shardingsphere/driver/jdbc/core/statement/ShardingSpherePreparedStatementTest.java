@@ -56,12 +56,16 @@ public final class ShardingSpherePreparedStatementTest extends AbstractShardingS
     private static final String SELECT_SQL_WITH_PARAMETER_MARKER_RETURN_STATUS = "SELECT item_id, user_id, status FROM t_order_item WHERE  order_id= ? AND user_id = ?";
     
     private static final String SELECT_AUTO_SQL = "SELECT item_id, order_id, status FROM t_order_item_auto WHERE order_id >= ?";
-    
+
+    private static final String SELECT_SQL_COLUMN_WITH_PARAMETER_MARKER = "SELECT ?, order_id, status FROM t_order_item_auto";
+
     private static final String UPDATE_SQL = "UPDATE t_order SET status = ? WHERE user_id = ? AND order_id = ?";
     
     private static final String UPDATE_AUTO_SQL = "UPDATE t_order_auto SET status = ? WHERE order_id = ?";
     
     private static final String UPDATE_BATCH_SQL = "UPDATE t_order SET status=? WHERE status=?";
+    
+    private static final String UPDATE_WITH_ERROR_COLUMN = "UPDATE t_order SET error_column=?";
     
     @Test
     public void assertAddBatch() throws SQLException {
@@ -467,6 +471,14 @@ public final class ShardingSpherePreparedStatementTest extends AbstractShardingS
             assertNull(preparedStatement.getResultSet());
         }
     }
+
+    @Test
+    public void assertExecuteSelectColumnGetResultSet() throws SQLException {
+        try (PreparedStatement preparedStatement = getShardingSphereDataSource().getConnection().prepareStatement(SELECT_SQL_COLUMN_WITH_PARAMETER_MARKER)) {
+            preparedStatement.setString(1, "item_id");
+            preparedStatement.executeQuery();
+        }
+    }
     
     @Test
     public void assertExecuteSelectAutoTableGetResultSet() throws SQLException {
@@ -529,6 +541,14 @@ public final class ShardingSpherePreparedStatementTest extends AbstractShardingS
     public void assertGetParameterMetaData() throws SQLException {
         try (PreparedStatement preparedStatement = getShardingSphereDataSource().getConnection().prepareStatement(SELECT_SQL_WITH_PARAMETER_MARKER)) {
             assertThat(preparedStatement.getParameterMetaData().getParameterCount(), is(2));
+        }
+    }
+    
+    @Test(expected = SQLException.class)
+    public void assertColumnNotFoundException() throws SQLException {
+        try (PreparedStatement preparedStatement = getShardingSphereDataSource().getConnection().prepareStatement(UPDATE_WITH_ERROR_COLUMN)) {
+            preparedStatement.setString(1, "OK");
+            preparedStatement.executeUpdate();
         }
     }
 }

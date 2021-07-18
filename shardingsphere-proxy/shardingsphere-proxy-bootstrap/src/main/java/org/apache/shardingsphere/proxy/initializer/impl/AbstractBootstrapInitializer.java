@@ -19,6 +19,7 @@ package org.apache.shardingsphere.proxy.initializer.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shardingsphere.db.protocol.mysql.constant.MySQLServerInfo;
+import org.apache.shardingsphere.db.protocol.postgresql.constant.PostgreSQLServerInfo;
 import org.apache.shardingsphere.infra.config.datasource.DataSourceParameter;
 import org.apache.shardingsphere.infra.config.properties.ConfigurationPropertyKey;
 import org.apache.shardingsphere.infra.context.metadata.MetaDataContexts;
@@ -67,18 +68,22 @@ public abstract class AbstractBootstrapInitializer implements BootstrapInitializ
     
     private MetaDataContexts createMetaDataContexts(final ProxyConfiguration proxyConfig) throws SQLException {
         Map<String, Map<String, DataSource>> dataSourcesMap = createDataSourcesMap(proxyConfig.getSchemaDataSources());
-        MetaDataContextsBuilder metaDataContextsBuilder = new MetaDataContextsBuilder(dataSourcesMap, proxyConfig.getSchemaRules(), proxyConfig.getUsers(), proxyConfig.getProps());
+        MetaDataContextsBuilder metaDataContextsBuilder = new MetaDataContextsBuilder(
+                dataSourcesMap, proxyConfig.getSchemaRules(), proxyConfig.getGlobalRules(), proxyConfig.getProps());
         return metaDataContextsBuilder.build();
     }
     
     private static Map<String, Map<String, DataSource>> createDataSourcesMap(final Map<String, Map<String, DataSourceParameter>> schemaDataSources) {
-        return schemaDataSources.entrySet().stream().collect(Collectors.toMap(Entry::getKey, entry -> createDataSources(entry.getValue()), (oldValue, currentValue) -> oldValue, LinkedHashMap::new));
+        return schemaDataSources
+                .entrySet()
+                .stream()
+                .collect(Collectors.toMap(Entry::getKey, entry -> createDataSources(entry.getKey(), entry.getValue()), (oldValue, currentValue) -> oldValue, LinkedHashMap::new));
     }
     
-    private static Map<String, DataSource> createDataSources(final Map<String, DataSourceParameter> dataSourceParameters) {
+    private static Map<String, DataSource> createDataSources(final String schemaName, final Map<String, DataSourceParameter> dataSourceParameters) {
         Map<String, DataSource> result = new LinkedHashMap<>(dataSourceParameters.size(), 1);
         for (Entry<String, DataSourceParameter> entry : dataSourceParameters.entrySet()) {
-            DataSource dataSource = JDBCRawBackendDataSourceFactory.getInstance().build(entry.getKey(), entry.getValue());
+            DataSource dataSource = JDBCRawBackendDataSourceFactory.getInstance().build(schemaName + "/" + entry.getKey(), entry.getValue());
             if (null != dataSource) {
                 result.put(entry.getKey(), dataSource);
             }
@@ -99,20 +104,24 @@ public abstract class AbstractBootstrapInitializer implements BootstrapInitializ
     }
     
     private void setDatabaseServerInfo() {
-        Optional<DataSource> dataSourceSampleForMySQL = findBackendMySQLDataSource();
-        if (dataSourceSampleForMySQL.isPresent()) {
-            DatabaseServerInfo databaseServerInfo = new DatabaseServerInfo(dataSourceSampleForMySQL.get());
+        findBackendDataSource().ifPresent(dataSourceSample -> {
+            DatabaseServerInfo databaseServerInfo = new DatabaseServerInfo(dataSourceSample);
             log.info(databaseServerInfo.toString());
-            MySQLServerInfo.setServerVersion(databaseServerInfo.getDatabaseVersion());
-        }
+            switch (databaseServerInfo.getDatabaseName()) {
+                case "MySQL":
+                    MySQLServerInfo.setServerVersion(databaseServerInfo.getDatabaseVersion());
+                    break;
+                case "PostgreSQL":
+                    PostgreSQLServerInfo.setServerVersion(databaseServerInfo.getDatabaseVersion());
+                    break;
+                default:
+            }
+        });
     }
     
-    private Optional<DataSource> findBackendMySQLDataSource() {
+    private Optional<DataSource> findBackendDataSource() {
         for (String each : ProxyContext.getInstance().getAllSchemaNames()) {
-            ShardingSphereResource resource = ProxyContext.getInstance().getMetaData(each).getResource();
-            if ("MySQL".equals(resource.getDatabaseType().getName())) {
-                return resource.getDataSources().values().stream().findFirst();
-            }
+            return ProxyContext.getInstance().getMetaData(each).getResource().getDataSources().values().stream().findFirst();
         }
         return Optional.empty();
     }

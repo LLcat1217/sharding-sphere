@@ -17,6 +17,8 @@
 
 package org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.text;
 
+import org.apache.shardingsphere.db.protocol.binary.BinaryCell;
+import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.PostgreSQLBinaryColumnType;
 import org.apache.shardingsphere.db.protocol.postgresql.payload.PostgreSQLPacketPayload;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -76,11 +78,19 @@ public final class PostgreSQLDataRowPacketTest {
         verify(payload).writeStringEOF("value");
     }
     
-    @Test
+    @Test(expected = RuntimeException.class)
     public void assertWriteWithSQLXML4Error() throws SQLException {
         when(sqlxml.getString()).thenThrow(new SQLException("mock"));
         PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singletonList(sqlxml));
         actual.write(payload);
         verify(payload, times(0)).writeStringEOF(any());
+    }
+    
+    @Test
+    public void assertWriteBinaryNull() {
+        PostgreSQLDataRowPacket actual = new PostgreSQLDataRowPacket(Collections.singletonList(new BinaryCell(PostgreSQLBinaryColumnType.POSTGRESQL_TYPE_INT4, null)));
+        actual.write(payload);
+        verify(payload).writeInt2(1);
+        verify(payload).writeInt4(0xFFFFFFFF);
     }
 }

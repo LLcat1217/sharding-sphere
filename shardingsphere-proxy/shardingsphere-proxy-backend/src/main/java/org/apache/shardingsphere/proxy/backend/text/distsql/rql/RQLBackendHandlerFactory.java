@@ -19,17 +19,14 @@ package org.apache.shardingsphere.proxy.backend.text.distsql.rql;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.apache.shardingsphere.distsql.parser.statement.rql.show.ShowResourcesStatement;
-import org.apache.shardingsphere.distsql.parser.statement.rql.show.ShowRuleStatement;
+import org.apache.shardingsphere.distsql.parser.statement.rql.RQLStatement;
+import org.apache.shardingsphere.infra.distsql.query.DistSQLResultSet;
+import org.apache.shardingsphere.infra.spi.ShardingSphereServiceLoader;
+import org.apache.shardingsphere.infra.spi.typed.TypedSPIRegistry;
 import org.apache.shardingsphere.proxy.backend.communication.jdbc.connection.BackendConnection;
 import org.apache.shardingsphere.proxy.backend.text.TextProtocolBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rql.impl.DataSourcesQueryBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rql.impl.ReplicaQueryRuleQueryBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rql.impl.RuleQueryBackendHandler;
-import org.apache.shardingsphere.proxy.backend.text.distsql.rql.impl.ShardingRuleQueryBackendHandler;
-import org.apache.shardingsphere.sql.parser.sql.common.statement.SQLStatement;
 
-import java.util.Optional;
+import java.util.Properties;
 
 /**
  * RQL backend handler factory.
@@ -37,32 +34,19 @@ import java.util.Optional;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class RQLBackendHandlerFactory {
     
+    static {
+        ShardingSphereServiceLoader.register(DistSQLResultSet.class);
+    }
+    
     /**
      * Create new instance of RDL backend handler.
      * 
-     * @param sqlStatement SQL statement
+     * @param sqlStatement RQL statement
      * @param backendConnection backend connection
      * @return RDL backend handler
      */
-    public static Optional<TextProtocolBackendHandler> newInstance(final SQLStatement sqlStatement, final BackendConnection backendConnection) {
-        if (sqlStatement instanceof ShowRuleStatement) {
-            String ruleType = ((ShowRuleStatement) sqlStatement).getRuleType();
-            switch (ruleType.toUpperCase()) {
-                case "SHARDING":
-                    return Optional.of(new ShardingRuleQueryBackendHandler((ShowRuleStatement) sqlStatement, backendConnection));
-                case "REPLICA_QUERY":
-                    return Optional.of(new ReplicaQueryRuleQueryBackendHandler((ShowRuleStatement) sqlStatement, backendConnection));
-                case "ENCRYPT":
-                    return Optional.of(new RuleQueryBackendHandler((ShowRuleStatement) sqlStatement, backendConnection));
-                case "SHADOW":
-                    return Optional.of(new RuleQueryBackendHandler((ShowRuleStatement) sqlStatement, backendConnection));
-                default:
-                    throw new UnsupportedOperationException(ruleType);
-            }
-        }
-        if (sqlStatement instanceof ShowResourcesStatement) {
-            return Optional.of(new DataSourcesQueryBackendHandler((ShowResourcesStatement) sqlStatement, backendConnection));
-        }
-        return Optional.empty();
+    public static TextProtocolBackendHandler newInstance(final RQLStatement sqlStatement, final BackendConnection backendConnection) {
+        DistSQLResultSet resultSet = TypedSPIRegistry.getRegisteredService(DistSQLResultSet.class, sqlStatement.getClass().getCanonicalName(), new Properties());
+        return new RQLBackendHandler(sqlStatement, backendConnection, resultSet);
     }
 }

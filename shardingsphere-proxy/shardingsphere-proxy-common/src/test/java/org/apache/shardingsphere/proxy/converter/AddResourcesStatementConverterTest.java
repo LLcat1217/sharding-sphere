@@ -18,7 +18,7 @@
 package org.apache.shardingsphere.proxy.converter;
 
 import org.apache.shardingsphere.distsql.parser.segment.DataSourceSegment;
-import org.apache.shardingsphere.distsql.parser.statement.rdl.create.impl.AddResourceStatement;
+import org.apache.shardingsphere.distsql.parser.statement.rdl.create.AddResourceStatement;
 import org.apache.shardingsphere.infra.database.type.dialect.MySQLDatabaseType;
 import org.apache.shardingsphere.proxy.config.yaml.YamlDataSourceParameter;
 import org.junit.Test;
@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
@@ -40,20 +41,15 @@ public final class AddResourcesStatementConverterTest {
         assertThat(actual.size(), is(2));
         assertTrue(actual.keySet().containsAll(Arrays.asList("ds0", "ds1")));
         assertThat(actual.values().iterator().next().getUsername(), is("root0"));
+        assertThat(actual.values().iterator().next().getCustomPoolProps().getProperty("maxPoolSize"), is("30"));
     }
     
     private Collection<DataSourceSegment> createDataSourceSegments() {
         Collection<DataSourceSegment> result = new LinkedList<>();
-        for (int i = 0; i < 2; i++) {
-            DataSourceSegment segment = new DataSourceSegment();
-            segment.setName(String.format("ds%s", i));
-            segment.setHostName("127.0.0.1");
-            segment.setPassword("3306");
-            segment.setDb(String.format("demo_ds_%s", i));
-            segment.setUser(String.format("root%s", i));
-            segment.setPassword(String.format("root%s", i));
-            result.add(segment);
-        }
+        Properties customPoolProps = new Properties();
+        customPoolProps.setProperty("maxPoolSize", "30");
+        result.add(new DataSourceSegment("ds0", null, "127.0.0.1", "3306", "demo_ds_0", "root0", "root0", customPoolProps));
+        result.add(new DataSourceSegment("ds1", "jdbc:mysql://127.0.0.1:3306/demo_ds_1?useSSL=false", null, null, null, "root1", "root1", customPoolProps));
         return result;
     }
 }

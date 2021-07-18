@@ -18,7 +18,7 @@
 package org.apache.shardingsphere.proxy.backend.text.data.impl;
 
 import lombok.SneakyThrows;
-import org.apache.shardingsphere.infra.metadata.auth.builtin.DefaultAuthentication;
+import org.apache.shardingsphere.infra.binder.statement.SQLStatementContext;
 import org.apache.shardingsphere.infra.config.properties.ConfigurationProperties;
 import org.apache.shardingsphere.infra.context.metadata.impl.StandardMetaDataContexts;
 import org.apache.shardingsphere.infra.database.type.DatabaseType;
@@ -26,6 +26,8 @@ import org.apache.shardingsphere.infra.database.type.dialect.H2DatabaseType;
 import org.apache.shardingsphere.infra.database.type.dialect.MySQLDatabaseType;
 import org.apache.shardingsphere.infra.executor.kernel.ExecutorEngine;
 import org.apache.shardingsphere.infra.metadata.ShardingSphereMetaData;
+import org.apache.shardingsphere.infra.metadata.rule.ShardingSphereRuleMetaData;
+import org.apache.shardingsphere.infra.optimize.context.OptimizeContextFactory;
 import org.apache.shardingsphere.proxy.backend.communication.DatabaseCommunicationEngine;
 import org.apache.shardingsphere.proxy.backend.communication.DatabaseCommunicationEngineFactory;
 import org.apache.shardingsphere.proxy.backend.communication.jdbc.connection.BackendConnection;
@@ -74,15 +76,15 @@ public final class BroadcastDatabaseBackendHandlerTest {
     public void setUp() throws IllegalAccessException, NoSuchFieldException {
         Field metaDataContexts = ProxyContext.getInstance().getClass().getDeclaredField("metaDataContexts");
         metaDataContexts.setAccessible(true);
-        metaDataContexts.set(ProxyContext.getInstance(), 
-                new StandardMetaDataContexts(getMetaDataMap(), mock(ExecutorEngine.class), new DefaultAuthentication(), new ConfigurationProperties(new Properties())));
+        metaDataContexts.set(ProxyContext.getInstance(), new StandardMetaDataContexts(getMetaDataMap(), mock(ShardingSphereRuleMetaData.class), 
+                mock(ExecutorEngine.class), new ConfigurationProperties(new Properties()), mock(OptimizeContextFactory.class)));
         when(backendConnection.getSchemaName()).thenReturn(String.format(SCHEMA_PATTERN, 0));
     }
     
     @Test
     public void assertExecuteSuccess() throws SQLException {
         mockDatabaseCommunicationEngine(new UpdateResponseHeader(mock(SQLStatement.class)));
-        BroadcastDatabaseBackendHandler broadcastBackendHandler = new BroadcastDatabaseBackendHandler(mock(SQLStatement.class), "SET timeout = 1000", backendConnection);
+        BroadcastDatabaseBackendHandler broadcastBackendHandler = new BroadcastDatabaseBackendHandler(mock(SQLStatementContext.class), "SET timeout = 1000", backendConnection);
         setBackendHandlerFactory(broadcastBackendHandler);
         ResponseHeader actual = broadcastBackendHandler.execute();
         assertThat(actual, instanceOf(UpdateResponseHeader.class));

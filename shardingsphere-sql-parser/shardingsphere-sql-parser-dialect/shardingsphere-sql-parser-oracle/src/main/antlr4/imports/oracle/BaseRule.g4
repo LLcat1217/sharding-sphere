@@ -38,7 +38,7 @@ stringLiterals
     ;
 
 numberLiterals
-   : MINUS_? NUMBER_
+   : (PLUS_ | MINUS_)? (INTEGER_ | NUMBER_)
    ;
 
 dateTimeLiterals
@@ -79,7 +79,7 @@ unreservedWord
     | ROLE | VISIBLE | INVISIBLE | EXECUTE | USE | DEBUG | UNDER
     | FLASHBACK | ARCHIVE | REFRESH | QUERY | REWRITE | KEEP | SEQUENCE
     | INHERIT | TRANSLATE | SQL | MERGE | AT | BITMAP | CACHE | CHECKPOINT
-    | CONNECT | CONSTRAINTS | CYCLE | DBTIMEZONE | ENCRYPT | DECRYPT | DEFERRABLE
+    | CONSTRAINTS | CYCLE | DBTIMEZONE | ENCRYPT | DECRYPT | DEFERRABLE
     | DEFERRED | EDITION | ELEMENT | END | EXCEPTIONS | FORCE | GLOBAL
     | IDENTITY | INITIALLY | INVALIDATE | JAVA | LEVELS | LOCAL | MAXVALUE
     | MINVALUE | NOMAXVALUE | NOMINVALUE | MINING | MODEL | NATIONAL | NEW
@@ -87,16 +87,16 @@ unreservedWord
     | PROFILE | REF | REKEY | RELY | REPLACE | SOURCE | SALT
     | SCOPE | SORT | SUBSTITUTABLE | TABLESPACE | TEMPORARY | TRANSLATION | TREAT
     | NO | TYPE | UNUSED | VALUE | VARYING | VIRTUAL | ZONE
-    | ADVISOR | ADMINISTER | TUNING | MANAGE | MANAGEMENT | OBJECT | CLUSTER
-    | CONTEXT | EXEMPT | REDACTION | POLICY | DATABASE | SYSTEM | AUDIT
+    | ADVISOR | ADMINISTER | TUNING | MANAGE | MANAGEMENT | OBJECT
+    | CONTEXT | EXEMPT | REDACTION | POLICY | DATABASE | SYSTEM
     | LINK | ANALYZE | DICTIONARY | DIMENSION | INDEXTYPE | EXTERNAL | JOB
     | CLASS | PROGRAM | SCHEDULER | LIBRARY | LOGMINING | MATERIALIZED | CUBE
     | MEASURE | FOLDER | BUILD | PROCESS | OPERATOR | OUTLINE | PLUGGABLE
-    | CONTAINER | SEGMENT | RESTRICTED | COST | SYNONYM | BACKUP | UNLIMITED
-    | BECOME | CHANGE | NOTIFICATION | ACCESS | PRIVILEGE | PURGE | RESUMABLE
+    | CONTAINER | SEGMENT | RESTRICTED | COST | BACKUP | UNLIMITED
+    | BECOME | CHANGE | NOTIFICATION | PRIVILEGE | PURGE | RESUMABLE
     | SYSGUID | SYSBACKUP | SYSDBA | SYSDG | SYSKM | SYSOPER | DBA_RECYCLEBIN |SCHEMA
     | DO | DEFINER | CURRENT_USER | CASCADED | CLOSE | OPEN | NEXT | NAME | NAMES
-    | INTEGER | COLLATION | REAL | DECIMAL | TYPE | FIRST
+    | COLLATION | REAL | TYPE | FIRST | RANK
     ;
 
 schemaName
@@ -108,6 +108,10 @@ tableName
     ;
 
 viewName
+    : (owner DOT_)? name
+    ;
+
+materializedViewName
     : (owner DOT_)? name
     ;
 
@@ -124,18 +128,190 @@ clusterName
     ;
 
 indexName
+    : (owner DOT_)? name
+    ;
+
+statisticsTypeName
+    : (owner DOT_)? name
+    ;
+
+function
+    : (owner DOT_)? name
+    ;
+
+packageName
+    : (owner DOT_)? name
+    ;
+
+typeName
+    : (owner DOT_)? name
+    ;
+
+indexTypeName
+    : (owner DOT_)? name
+    ;
+
+modelName
+    : (owner DOT_)? name
+    ;
+
+operatorName
+    : (owner DOT_)? name
+    ;
+
+constraintName
     : identifier
     ;
 
 savepointName
     : identifier
     ;
-    
+
+synonymName
+    : identifier
+    ;
+
 owner
     : identifier
     ;
 
 name
+    : identifier
+    ;
+
+tablespaceName
+    : identifier
+    ;
+
+tablespaceSetName
+    : identifier
+    ;
+
+serviceName
+    : identifier
+    ;
+
+ilmPolicyName
+    : identifier
+    ;
+
+policyName
+    : identifier
+    ;
+
+functionName
+    : identifier
+    ;
+
+dbLink
+    : identifier
+    ;
+
+parameterValue
+    : literals | identifier
+    ;
+
+directoryName
+    : identifier
+    ;
+
+dispatcherName
+    : stringLiterals
+    ;
+
+clientId
+    : stringLiterals
+    ;
+
+opaqueFormatSpec
+    : identifier
+    ;
+
+accessDriverType
+    : identifier
+    ;
+
+varrayItem
+    : identifier
+    ;
+
+nestedItem
+    : identifier
+    ;
+
+storageTable
+    : identifier
+    ;
+
+lobSegname
+    : identifier
+    ;
+
+locationSpecifier
+    : identifier
+    ;
+
+xmlSchemaURLName
+    : identifier
+    ;
+
+elementName
+    : identifier
+    ;
+
+subpartitionName
+    : identifier
+    ;
+
+parameterName
+    : identifier
+    ;
+
+editionName
+    : identifier
+    ;
+
+containerName
+    : identifier
+    ;
+
+partitionName
+    : identifier
+    ;
+
+partitionSetName
+    : identifier
+    ;
+
+partitionKeyValue
+    : INTEGER_ | dateTimeLiterals
+    ;
+
+subpartitionKeyValue
+    : INTEGER_ | dateTimeLiterals
+    ;
+
+zonemapName
+    : identifier
+    ;
+
+flashbackArchiveName
+    : identifier
+    ;
+
+roleName
+    : identifier
+    ;
+
+userName
+    : identifier
+    ;
+
+password
+    : identifier
+    ;
+
+logGroupName
     : identifier
     ;
 
@@ -148,19 +324,23 @@ tableNames
     ;
 
 oracleId
-    : IDENTIFIER_ | (STRING_ DOT_)* STRING_
+    : identifier | (STRING_ DOT_)* STRING_
     ;
 
 collationName
     : STRING_ | IDENTIFIER_
     ;
 
+columnCollationName
+    : identifier
+    ;
+
 alias
-    : IDENTIFIER_
+    : identifier | STRING_
     ;
 
 dataTypeLength
-    : LP_ (NUMBER_ (COMMA_ NUMBER_)?)? RP_
+    : LP_ (INTEGER_ (COMMA_ INTEGER_)?)? RP_
     ;
 
 primaryKey
@@ -206,6 +386,7 @@ comparisonOperator
 predicate
     : bitExpr NOT? IN subquery
     | bitExpr NOT? IN LP_ expr (COMMA_ expr)* RP_
+    | bitExpr NOT? IN LP_ expr (COMMA_ expr)* RP_ AND predicate
     | bitExpr NOT? BETWEEN bitExpr AND predicate
     | bitExpr NOT? LIKE simpleExpr (ESCAPE simpleExpr)?
     | bitExpr
@@ -292,19 +473,15 @@ subquery
     ;
 
 orderByClause
-    : ORDER BY orderByItem (COMMA_ orderByItem)*
+    : ORDER SIBLINGS? BY orderByItem (COMMA_ orderByItem)*
     ;
 
 orderByItem
-    : (columnName | numberLiterals | expr) (ASC | DESC)?
+    : (columnName | numberLiterals | expr) (ASC | DESC)? (NULLS FIRST | NULLS LAST)?
     ;
 
 attributeName
     : oracleId
-    ;
-
-indexTypeName
-    : IDENTIFIER_
     ;
 
 simpleExprs
@@ -336,7 +513,7 @@ dataTypeName
     | BOOLEAN | PLS_INTEGER | BINARY_INTEGER | INTEGER | NUMBER | NATURAL | NATURALN | POSITIVE | POSITIVEN | SIGNTYPE
     | SIMPLE_INTEGER | BFILE | MLSLABEL | UROWID | DATE | TIMESTAMP | TIMESTAMP WITH TIME ZONE | TIMESTAMP WITH LOCAL TIME ZONE
     | INTERVAL DAY TO SECOND | INTERVAL YEAR TO MONTH | JSON | FLOAT | REAL | DOUBLE PRECISION | INT | SMALLINT
-    | DECIMAL | NUMERIC | DEC | IDENTIFIER_
+    | DECIMAL | NUMERIC | DEC | IDENTIFIER_ | XMLTYPE
     ;
 
 datetimeTypeSuffix
@@ -389,4 +566,252 @@ ignoredIdentifiers
 
 matchNone
     : 'Default does not match anything'
+    ;
+
+hashSubpartitionQuantity
+    : NUMBER
+    ;
+
+odciParameters
+    : identifier
+    ;
+
+databaseName
+    : identifier
+    ;
+
+locationName
+    : STRING_
+    ;
+
+fileName
+    : STRING_
+    ;
+
+asmFileName
+    : STRING_
+    ;
+
+fileNumber
+    : INTEGER_
+    ;
+
+instanceName
+    : STRING_
+    ;
+
+logminerSessionName
+    : identifier
+    ;
+
+tablespaceGroupName
+    : identifier
+    ;
+
+copyName
+    : identifier
+    ;
+
+mirrorName
+    : identifier
+    ;
+
+uriString
+    : identifier
+    ;
+
+qualifiedCredentialName
+    : identifier
+    ;
+
+pdbName
+    : identifier
+    ;
+
+diskgroupName
+    : identifier
+    ;
+
+templateName
+    : identifier
+    ;
+
+aliasName
+    : identifier
+    ;
+
+domain
+    : identifier
+    ;
+
+dateValue
+    : dateTimeLiterals | stringLiterals | numberLiterals | expr
+    ;
+
+sessionId
+    : numberLiterals
+    ;
+
+serialNumber
+    : numberLiterals
+    ;
+
+instanceId
+    : NUMBER_
+    ;
+
+sqlId
+    : identifier
+    ;
+
+logFileName
+    : stringLiterals
+    ;
+
+logFileGroupsArchivedLocationName
+    : stringLiterals
+    ;
+
+asmVersion
+    : stringLiterals
+    ;
+
+walletPassword
+    : identifier
+    ;
+
+hsmAuthString
+    : identifier
+    ;
+
+targetDbName
+    : identifier
+    ;
+
+certificateId
+    : identifier
+    ;
+
+categoryName
+    : identifier
+    ;
+
+offset
+    : numberLiterals | expr | nullValueLiterals
+    ;
+
+rowcount
+    : numberLiterals | expr | nullValueLiterals
+    ;
+
+percent
+    : numberLiterals | expr | nullValueLiterals
+    ;
+
+rollbackSegment
+    : identifier
+    ;
+
+queryName
+    : (owner DOT_)? name
+    ;
+
+cycleValue
+    : STRING_
+    ;
+
+noCycleValue
+    : STRING_
+    ;
+
+orderingColumn
+    : columnName
+    ;
+
+subavName
+    : (owner DOT_)? name
+    ;
+
+baseAvName
+    : (owner DOT_)? name
+    ;
+
+measName
+    : identifier
+    ;
+
+levelRef
+    : identifier
+    ;
+
+offsetExpr
+    : expr | numberLiterals
+    ;
+
+memberKeyExpr
+    : identifier
+    ;
+
+depthExpression
+    : identifier
+    ;
+
+unitName
+    : (owner DOT_)? name
+    ;
+
+procedureName
+    : identifier
+    ;
+
+cpuCost
+    : INTEGER_
+    ;
+
+ioCost
+    : INTEGER_
+    ;
+
+networkCost
+    : INTEGER_
+    ;
+
+defaultSelectivity
+    : INTEGER_
+    ;
+
+dataItem
+    : variableName
+    ;
+
+variableName
+    : identifier | stringLiterals
+    ;
+
+validTimeColumn
+    : columnName
+    ;
+
+attrDim
+    : identifier
+    ;
+
+hierarchyName
+    : (owner DOT_)? name
+    ;
+
+analyticViewName
+    : (owner DOT_)? name
+    ;
+
+samplePercent
+    : numberLiterals
+    ;
+
+seedValue
+    : numberLiterals
+    ;
+
+namespace
+    : identifier
     ;

@@ -18,9 +18,9 @@
 package org.apache.shardingsphere.infra.datanode;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.shardingsphere.infra.rule.ShardingSphereRule;
 import org.apache.shardingsphere.infra.rule.type.DataNodeContainedRule;
 import org.apache.shardingsphere.infra.rule.type.DataSourceContainedRule;
-import org.apache.shardingsphere.infra.rule.ShardingSphereRule;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -47,7 +47,8 @@ public final class DataNodes {
      * @return data nodes
      */
     public Collection<DataNode> getDataNodes(final String tableName) {
-        Optional<DataNodeContainedRule> dataNodeContainedRule = rules.stream().filter(each -> each instanceof DataNodeContainedRule).findFirst().map(rule -> (DataNodeContainedRule) rule);
+        Optional<DataNodeContainedRule> dataNodeContainedRule = rules.stream().filter(each 
+            -> isDataNodeContainedRuleContainsTable(each, tableName)).findFirst().map(rule -> (DataNodeContainedRule) rule);
         if (!dataNodeContainedRule.isPresent()) {
             return Collections.emptyList();
         }
@@ -55,33 +56,33 @@ public final class DataNodes {
         for (ShardingSphereRule each : rules) {
             if (each instanceof DataSourceContainedRule) {
                 for (Entry<String, Collection<String>> entry : ((DataSourceContainedRule) each).getDataSourceMapper().entrySet()) {
-                    Collection<DataNode> dataNodes = find(result, entry.getKey());
+                    Collection<DataNode> dataNodes = findDataNodes(result, entry.getKey());
                     result.removeAll(dataNodes);
-                    result.addAll(regenerate(dataNodes, entry.getValue()));
+                    result.addAll(rebuildDataNodes(dataNodes, entry.getValue()));
                 }
             }
         }
         return result;
     }
     
-    private Collection<DataNode> find(final Collection<DataNode> dataNodes, final String logicDataSource) {
+    private boolean isDataNodeContainedRuleContainsTable(final ShardingSphereRule each, final String tableName) {
+        return each instanceof DataNodeContainedRule && ((DataNodeContainedRule) each).getAllDataNodes().containsKey(tableName);
+    }
+    
+    private Collection<DataNode> findDataNodes(final Collection<DataNode> dataNodes, final String logicDataSource) {
         return dataNodes.stream().filter(each -> each.getDataSourceName().equals(logicDataSource)).collect(Collectors.toList());
     }
     
-    private Collection<DataNode> regenerate(final Collection<DataNode> dataNodes, final Collection<String> actualDataSources) {
+    private Collection<DataNode> rebuildDataNodes(final Collection<DataNode> dataNodes, final Collection<String> actualDataSources) {
         Collection<DataNode> result = new LinkedHashSet<>();
         for (DataNode each : dataNodes) {
-            result.addAll(regenerate(actualDataSources, each.getTableName()));
+            result.addAll(rebuildDataNodes(actualDataSources, each.getTableName()));
         }
         return result;
     }
     
-    private Collection<DataNode> regenerate(final Collection<String> dataSources, final String table) {
-        Collection<DataNode> result = new LinkedHashSet<>(dataSources.size(), 1);
-        for (String each : dataSources) {
-            result.add(new DataNode(each, table));
-        }
-        return result;
+    private Collection<DataNode> rebuildDataNodes(final Collection<String> dataSources, final String table) {
+        return dataSources.stream().map(each -> new DataNode(each, table)).collect(Collectors.toCollection(() -> new LinkedHashSet<>(dataSources.size(), 1)));
     }
     
     /**

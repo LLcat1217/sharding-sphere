@@ -17,7 +17,7 @@
 
 package org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.bind.protocol;
 
-import org.apache.shardingsphere.db.protocol.postgresql.constant.PostgreSQLBinaryColumnType;
+import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.PostgreSQLBinaryColumnType;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -26,8 +26,14 @@ import static org.junit.Assert.assertThat;
 public final class PostgreSQLBinaryProtocolValueFactoryTest {
     
     @Test
-    public void assertGetStringBinaryProtocolValue() {
+    public void assertGetStringBinaryProtocolValueByVarchar() {
         PostgreSQLBinaryProtocolValue binaryProtocolValue = PostgreSQLBinaryProtocolValueFactory.getBinaryProtocolValue(PostgreSQLBinaryColumnType.POSTGRESQL_TYPE_VARCHAR);
+        assertThat(binaryProtocolValue, instanceOf(PostgreSQLStringBinaryProtocolValue.class));
+    }
+    
+    @Test
+    public void assertGetStringBinaryProtocolValueByChar() {
+        PostgreSQLBinaryProtocolValue binaryProtocolValue = PostgreSQLBinaryProtocolValueFactory.getBinaryProtocolValue(PostgreSQLBinaryColumnType.POSTGRESQL_TYPE_CHAR);
         assertThat(binaryProtocolValue, instanceOf(PostgreSQLStringBinaryProtocolValue.class));
     }
     

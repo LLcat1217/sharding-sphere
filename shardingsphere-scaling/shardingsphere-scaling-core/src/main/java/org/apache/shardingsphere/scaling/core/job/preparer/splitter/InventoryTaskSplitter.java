@@ -108,7 +108,14 @@ public final class InventoryTaskSplitter {
     private Collection<ScalingPosition<?>> getInventoryPositions(
             final JobContext jobContext, final InventoryDumperConfiguration dumperConfig, final DataSource dataSource, final MetaDataManager metaDataManager) {
         if (null != jobContext.getInitProgress()) {
-            return jobContext.getInitProgress().getInventoryPosition(dumperConfig.getTableName()).values();
+            Collection<ScalingPosition<?>> result = jobContext.getInitProgress().getInventoryPosition(dumperConfig.getTableName()).values();
+            result.stream().findFirst().ifPresent(position -> {
+                if (position instanceof PrimaryKeyPosition) {
+                    String primaryKey = metaDataManager.getTableMetaData(dumperConfig.getTableName()).getPrimaryKeyColumns().get(0);
+                    dumperConfig.setPrimaryKey(primaryKey);
+                }
+            });
+            return result;
         }
         if (isSpiltByPrimaryKeyRange(metaDataManager, dumperConfig.getTableName())) {
             String primaryKey = metaDataManager.getTableMetaData(dumperConfig.getTableName()).getPrimaryKeyColumns().get(0);
@@ -164,6 +171,10 @@ public final class InventoryTaskSplitter {
                     result.add(new PrimaryKeyPosition(beginId, endId));
                     beginId = endId + 1;
                 }
+            }
+            // fix empty table missing inventory task
+            if (0 == result.size()) {
+                result.add(new PrimaryKeyPosition(0, 0));
             }
         } catch (final SQLException ex) {
             throw new PrepareFailedException(String.format("Split task for table %s by primary key %s error", dumperConfig.getTableName(), dumperConfig.getPrimaryKey()), ex);

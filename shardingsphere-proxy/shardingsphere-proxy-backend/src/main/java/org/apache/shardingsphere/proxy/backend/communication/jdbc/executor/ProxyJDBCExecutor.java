@@ -19,15 +19,19 @@ package org.apache.shardingsphere.proxy.backend.communication.jdbc.executor;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.apache.shardingsphere.infra.binder.LogicSQL;
+import org.apache.shardingsphere.infra.binder.statement.SQLStatementContext;
+import org.apache.shardingsphere.infra.context.metadata.MetaDataContexts;
 import org.apache.shardingsphere.infra.database.type.DatabaseType;
-import org.apache.shardingsphere.infra.executor.kernel.model.ExecutionGroup;
+import org.apache.shardingsphere.infra.executor.kernel.model.ExecutionGroupContext;
 import org.apache.shardingsphere.infra.executor.sql.execute.engine.driver.jdbc.JDBCExecutionUnit;
 import org.apache.shardingsphere.infra.executor.sql.execute.engine.driver.jdbc.JDBCExecutor;
 import org.apache.shardingsphere.infra.executor.sql.execute.result.ExecuteResult;
+import org.apache.shardingsphere.infra.executor.sql.process.ExecuteProcessEngine;
+import org.apache.shardingsphere.proxy.backend.communication.DatabaseCommunicationEngine;
 import org.apache.shardingsphere.proxy.backend.communication.jdbc.connection.BackendConnection;
 import org.apache.shardingsphere.proxy.backend.communication.jdbc.executor.callback.ProxyJDBCExecutorCallbackFactory;
 import org.apache.shardingsphere.proxy.backend.context.ProxyContext;
-import org.apache.shardingsphere.sql.parser.sql.common.statement.SQLStatement;
 
 import java.sql.SQLException;
 import java.util.Collection;
@@ -42,24 +46,35 @@ public final class ProxyJDBCExecutor {
     
     private final BackendConnection backendConnection;
     
+    private final DatabaseCommunicationEngine databaseCommunicationEngine;
+    
     @Getter
     private final JDBCExecutor jdbcExecutor;
     
     /**
      * Execute.
      * 
-     * @param sqlStatement SQL statement
-     * @param executionGroups execution groups
+     * @param logicSQL logic SQL
+     * @param executionGroupContext execution group context
      * @param isReturnGeneratedKeys is return generated keys
      * @param isExceptionThrown is exception thrown
      * @return execute results
      * @throws SQLException SQL exception
      */
-    public Collection<ExecuteResult> execute(final SQLStatement sqlStatement, final Collection<ExecutionGroup<JDBCExecutionUnit>> executionGroups, 
+    public Collection<ExecuteResult> execute(final LogicSQL logicSQL, final ExecutionGroupContext<JDBCExecutionUnit> executionGroupContext,
                                              final boolean isReturnGeneratedKeys, final boolean isExceptionThrown) throws SQLException {
-        DatabaseType databaseType = ProxyContext.getInstance().getMetaDataContexts().getMetaData(backendConnection.getSchemaName()).getResource().getDatabaseType();
-        return jdbcExecutor.execute(executionGroups,
-                ProxyJDBCExecutorCallbackFactory.newInstance(type, databaseType, sqlStatement, backendConnection, isReturnGeneratedKeys, isExceptionThrown, true),
-                ProxyJDBCExecutorCallbackFactory.newInstance(type, databaseType, sqlStatement, backendConnection, isReturnGeneratedKeys, isExceptionThrown, false));
+        try {
+            MetaDataContexts metaDataContexts = ProxyContext.getInstance().getMetaDataContexts();
+            DatabaseType databaseType = metaDataContexts.getMetaData(backendConnection.getSchemaName()).getResource().getDatabaseType();
+            ExecuteProcessEngine.initialize(logicSQL, executionGroupContext, metaDataContexts.getProps());
+            SQLStatementContext<?> context = logicSQL.getSqlStatementContext();
+            Collection<ExecuteResult> result = jdbcExecutor.execute(executionGroupContext,
+                    ProxyJDBCExecutorCallbackFactory.newInstance(type, databaseType, context.getSqlStatement(), databaseCommunicationEngine, isReturnGeneratedKeys, isExceptionThrown, true),
+                    ProxyJDBCExecutorCallbackFactory.newInstance(type, databaseType, context.getSqlStatement(), databaseCommunicationEngine, isReturnGeneratedKeys, isExceptionThrown, false));
+            ExecuteProcessEngine.finish(executionGroupContext.getExecutionID());
+            return result;
+        } finally {
+            ExecuteProcessEngine.clean();
+        }
     }
 }

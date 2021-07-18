@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.Optional;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -113,6 +114,12 @@ public final class QueryHeaderBuilderTest {
     }
     
     @Test
+    public void assertQueryHeaderPrimaryKeyWithoutColumn() throws SQLException {
+        QueryHeader header = QueryHeaderBuilder.build(createQueryResultMetaData(), createMetaData(), 2);
+        assertFalse(header.isPrimaryKey());
+    }
+    
+    @Test
     public void assertQueryHeaderNotNull() throws SQLException {
         QueryHeader header = QueryHeaderBuilder.build(createQueryResultMetaData(), createMetaData(), 1);
         assertTrue(header.isNotNull());
@@ -126,9 +133,9 @@ public final class QueryHeaderBuilderTest {
     
     private ShardingSphereMetaData createMetaData() {
         ShardingSphereMetaData result = mock(ShardingSphereMetaData.class, RETURNS_DEEP_STUBS);
-        ColumnMetaData columnMetaData = new ColumnMetaData("order_id", Types.INTEGER, "int", true, false, false);
+        ColumnMetaData columnMetaData = new ColumnMetaData("order_id", Types.INTEGER, true, false, false);
         ShardingSphereSchema schema = mock(ShardingSphereSchema.class);
-        when(schema.get("t_logic_order")).thenReturn(new TableMetaData(Collections.singletonList(columnMetaData), Collections.singletonList(new IndexMetaData("order_id"))));
+        when(schema.get("t_logic_order")).thenReturn(new TableMetaData("t_logic_order", Collections.singletonList(columnMetaData), Collections.singletonList(new IndexMetaData("order_id"))));
         DataSourcesMetaData dataSourcesMetaData = mock(DataSourcesMetaData.class);
         when(dataSourcesMetaData.getDataSourceMetaData("ds_0")).thenReturn(mock(DataSourceMetaData.class));
         when(result.getResource().getDataSourcesMetaData()).thenReturn(dataSourcesMetaData);
@@ -147,6 +154,7 @@ public final class QueryHeaderBuilderTest {
     private QueryResultMetaData createQueryResultMetaData() throws SQLException {
         QueryResultMetaData result = mock(QueryResultMetaData.class);
         when(result.getTableName(1)).thenReturn("t_order");
+        when(result.getTableName(2)).thenReturn("t_order");
         when(result.getColumnLabel(1)).thenReturn("order_id");
         when(result.getColumnName(1)).thenReturn("order_id");
         when(result.getColumnName(2)).thenReturn("expr");

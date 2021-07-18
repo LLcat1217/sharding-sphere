@@ -28,7 +28,9 @@ import org.apache.shardingsphere.infra.config.exception.ShardingSphereConfigurat
 import org.apache.shardingsphere.infra.spi.ShardingSphereServiceLoader;
 
 import javax.sql.DataSource;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -64,7 +66,7 @@ public final class DataSourceConfiguration {
     
     /**
      * Get data source configuration.
-     * 
+     *
      * @param dataSource data source
      * @return data source configuration
      */
@@ -100,7 +102,7 @@ public final class DataSourceConfiguration {
     
     /**
      * Create data source.
-     * 
+     *
      * @return data source
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -114,30 +116,36 @@ public final class DataSourceConfiguration {
             }
             try {
                 Optional<Method> setterMethod = findSetterMethod(methods, entry.getKey());
-                if (setterMethod.isPresent()) {
-                    setterMethod.get().invoke(result, entry.getValue());
+                if (setterMethod.isPresent() && null != entry.getValue()) {
+                    setDataSourceField(setterMethod.get(), result, entry.getValue());
                 }
             } catch (final IllegalArgumentException ex) {
                 throw new ShardingSphereConfigurationException("Incorrect configuration item: the property %s of the dataSource, because %s", entry.getKey(), ex.getMessage());
             }
         }
-        Optional<JDBCParameterDecorator> decorator = findJDBCParameterDecorator(result);
-        return decorator.isPresent() ? decorator.get().decorate(result) : result;
+        return JDBCParameterDecoratorHelper.decorate(result);
     }
     
-    @SuppressWarnings("rawtypes")
-    private Optional<JDBCParameterDecorator> findJDBCParameterDecorator(final DataSource dataSource) {
-        return ShardingSphereServiceLoader.newServiceInstances(JDBCParameterDecorator.class).stream().filter(each -> each.getType() == dataSource.getClass()).findFirst();
+    private void setDataSourceField(final Method method, final DataSource target, final Object value) throws InvocationTargetException, IllegalAccessException {
+        Class<?> paramType = method.getParameterTypes()[0];
+        if (paramType == int.class) {
+            method.invoke(target, Integer.parseInt(value.toString()));
+        } else if (paramType == long.class) {
+            method.invoke(target, Long.parseLong(value.toString()));
+        } else if (paramType == boolean.class || paramType == Boolean.class) {
+            method.invoke(target, Boolean.parseBoolean(value.toString()));
+        } else if (paramType == String.class) {
+            method.invoke(target, value.toString());
+        } else {
+            method.invoke(target, value);
+        }
     }
     
     private Optional<Method> findSetterMethod(final Method[] methods, final String property) {
         String setterMethodName = Joiner.on("").join(SETTER_PREFIX, CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, property));
-        for (Method each : methods) {
-            if (each.getName().equals(setterMethodName) && 1 == each.getParameterTypes().length) {
-                return Optional.of(each);
-            }
-        }
-        return Optional.empty();
+        return Arrays.stream(methods)
+                .filter(each -> each.getName().equals(setterMethodName) && 1 == each.getParameterTypes().length)
+                .findFirst();
     }
     
     /**

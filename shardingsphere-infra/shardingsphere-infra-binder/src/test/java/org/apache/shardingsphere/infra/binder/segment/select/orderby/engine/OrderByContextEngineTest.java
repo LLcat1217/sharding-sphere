@@ -17,10 +17,6 @@
 
 package org.apache.shardingsphere.infra.binder.segment.select.orderby.engine;
 
-import java.sql.Types;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
 import org.apache.shardingsphere.infra.binder.segment.select.groupby.GroupByContext;
 import org.apache.shardingsphere.infra.binder.segment.select.groupby.engine.GroupByContextEngine;
 import org.apache.shardingsphere.infra.binder.segment.select.orderby.OrderByContext;
@@ -42,6 +38,7 @@ import org.apache.shardingsphere.sql.parser.sql.common.segment.dml.order.item.Or
 import org.apache.shardingsphere.sql.parser.sql.common.segment.generic.table.JoinTableSegment;
 import org.apache.shardingsphere.sql.parser.sql.common.segment.generic.table.SimpleTableSegment;
 import org.apache.shardingsphere.sql.parser.sql.common.segment.generic.table.SubqueryTableSegment;
+import org.apache.shardingsphere.sql.parser.sql.common.segment.generic.table.TableNameSegment;
 import org.apache.shardingsphere.sql.parser.sql.common.statement.dml.SelectStatement;
 import org.apache.shardingsphere.sql.parser.sql.common.value.identifier.IdentifierValue;
 import org.apache.shardingsphere.sql.parser.sql.dialect.statement.mysql.dml.MySQLSelectStatement;
@@ -51,10 +48,14 @@ import org.apache.shardingsphere.sql.parser.sql.dialect.statement.sql92.dml.SQL9
 import org.apache.shardingsphere.sql.parser.sql.dialect.statement.sqlserver.dml.SQLServerSelectStatement;
 import org.junit.Test;
 
+import java.sql.Types;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertFalse;
@@ -95,7 +96,7 @@ public final class OrderByContextEngineTest {
         OrderByItem orderByItem1 = new OrderByItem(new IndexOrderByItemSegment(0, 1, 1, OrderDirection.ASC, OrderDirection.DESC));
         OrderByItem orderByItem2 = new OrderByItem(new IndexOrderByItemSegment(1, 2, 2, OrderDirection.ASC, OrderDirection.DESC));
         Collection<OrderByItem> orderByItems = Arrays.asList(orderByItem1, orderByItem2);
-        GroupByContext groupByContext = new GroupByContext(orderByItems, 0);
+        GroupByContext groupByContext = new GroupByContext(orderByItems);
         OrderByContext actualOrderByContext = new OrderByContextEngine().createOrderBy(new ShardingSphereSchema(), selectStatement, groupByContext);
         assertThat(actualOrderByContext.getItems(), is(orderByItems));
         assertTrue(actualOrderByContext.isGenerated());
@@ -132,7 +133,7 @@ public final class OrderByContextEngineTest {
         OrderByItemSegment indexOrderByItemSegment2 = new IndexOrderByItemSegment(2, 3, 3, OrderDirection.ASC, OrderDirection.DESC);
         OrderBySegment orderBySegment = new OrderBySegment(0, 1, Arrays.asList(columnOrderByItemSegment, indexOrderByItemSegment1, indexOrderByItemSegment2));
         selectStatement.setOrderBy(orderBySegment);
-        GroupByContext emptyGroupByContext = new GroupByContext(Collections.emptyList(), 0);
+        GroupByContext emptyGroupByContext = new GroupByContext(Collections.emptyList());
         OrderByContext actualOrderByContext = new OrderByContextEngine().createOrderBy(new ShardingSphereSchema(), selectStatement, emptyGroupByContext);
         OrderByItem expectedOrderByItem1 = new OrderByItem(columnOrderByItemSegment);
         OrderByItem expectedOrderByItem2 = new OrderByItem(indexOrderByItemSegment1);
@@ -176,7 +177,7 @@ public final class OrderByContextEngineTest {
         projectionsSegment.setDistinctRow(true);
         projectionsSegment.getProjections().addAll(list);
         selectStatement.setProjections(projectionsSegment);
-        GroupByContext groupByContext = new GroupByContext(Collections.emptyList(), 0);
+        GroupByContext groupByContext = new GroupByContext(Collections.emptyList());
         OrderByContext actualOrderByContext = new OrderByContextEngine().createOrderBy(new ShardingSphereSchema(), selectStatement, groupByContext);
         assertThat(actualOrderByContext.getItems().size(), is(list.size()));
         List<OrderByItem> items = (List<OrderByItem>) actualOrderByContext.getItems();
@@ -188,8 +189,9 @@ public final class OrderByContextEngineTest {
     @Test
     public void assertCreateOrderByContextForMySQLSelectWithoutOrderByOnPlainQuery() {
         SelectStatement selectStatement = mock(MySQLSelectStatement.class, RETURNS_DEEP_STUBS);
-        when(selectStatement.getFrom()).thenReturn(new SimpleTableSegment(0, 1, new IdentifierValue("t_order")));
-        GroupByContext groupByContext = new GroupByContext(Collections.emptyList(), 0);
+        when(selectStatement.getFrom()).thenReturn(new SimpleTableSegment(new TableNameSegment(0, 1, new IdentifierValue("t_order"))));
+        when(selectStatement.getProjections().getProjections()).thenReturn(Collections.emptyList());
+        GroupByContext groupByContext = new GroupByContext(Collections.emptyList());
         OrderByContext actualOrderByContext = new OrderByContextEngine().createOrderBy(getShardingSphereSchemaForMySQLSelectWithoutOrderBy(), selectStatement, groupByContext);
         assertTrue(actualOrderByContext.isGenerated());
         assertThat(actualOrderByContext.getItems().size(), is(1));
@@ -200,10 +202,10 @@ public final class OrderByContextEngineTest {
     @Test
     public void assertCreateOrderByContextForMySQLSelectWithoutOrderByOnOrderByQuery() {
         SelectStatement selectStatement = mock(MySQLSelectStatement.class, RETURNS_DEEP_STUBS);
-        when(selectStatement.getFrom()).thenReturn(new SimpleTableSegment(0, 1, new IdentifierValue("t_order")));
+        when(selectStatement.getFrom()).thenReturn(new SimpleTableSegment(new TableNameSegment(0, 1, new IdentifierValue("t_order"))));
         when(selectStatement.getOrderBy()).thenReturn(Optional.of(new OrderBySegment(0, 1, Collections.singleton(new ColumnOrderByItemSegment(
             new ColumnSegment(0, 1, new IdentifierValue("order_id")), OrderDirection.ASC)))));
-        GroupByContext groupByContext = new GroupByContext(Collections.emptyList(), 0);
+        GroupByContext groupByContext = new GroupByContext(Collections.emptyList());
         OrderByContext actualOrderByContext = new OrderByContextEngine().createOrderBy(getShardingSphereSchemaForMySQLSelectWithoutOrderBy(), selectStatement, groupByContext);
         assertFalse(actualOrderByContext.isGenerated());
         assertThat(actualOrderByContext.getItems().size(), is(1));
@@ -214,7 +216,7 @@ public final class OrderByContextEngineTest {
     @Test
     public void assertCreateOrderByContextForMySQLSelectWithoutOrderByOnCountQuery() {
         SelectStatement selectStatement = mock(MySQLSelectStatement.class, RETURNS_DEEP_STUBS);
-        when(selectStatement.getFrom()).thenReturn(new SimpleTableSegment(0, 1, new IdentifierValue("t_order")));
+        when(selectStatement.getFrom()).thenReturn(new SimpleTableSegment(new TableNameSegment(0, 1, new IdentifierValue("t_order"))));
         ProjectionsSegment projectionsSegment = new ProjectionsSegment(0, 1);
         projectionsSegment.setDistinctRow(false);
         projectionsSegment.getProjections().add(new AggregationProjectionSegment(0, 1, AggregationType.COUNT, "COUNT(1)"));
@@ -245,10 +247,10 @@ public final class OrderByContextEngineTest {
     
     private ShardingSphereSchema getShardingSphereSchemaForMySQLSelectWithoutOrderBy() {
         Map<String, TableMetaData> tables = new HashMap<>();
-        TableMetaData orderTable = new TableMetaData(Arrays.asList(
-            new ColumnMetaData("order_id", Types.INTEGER, "INT", true, true, false),
-            new ColumnMetaData("user_id", Types.INTEGER, "INT", false, false, false),
-            new ColumnMetaData("status", Types.VARCHAR, "VARCHAR", false, false, false)
+        TableMetaData orderTable = new TableMetaData("t_order", Arrays.asList(
+            new ColumnMetaData("order_id", Types.INTEGER, true, true, false),
+            new ColumnMetaData("user_id", Types.INTEGER, false, false, false),
+            new ColumnMetaData("status", Types.VARCHAR, false, false, false)
         ), Collections.emptyList());
         tables.put("t_order", orderTable);
         return new ShardingSphereSchema(tables);

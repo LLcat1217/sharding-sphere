@@ -18,16 +18,16 @@
 package org.apache.shardingsphere.proxy.frontend.postgresql.command.query.binary.parse;
 
 import org.apache.shardingsphere.db.protocol.packet.DatabasePacket;
-import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.BinaryStatementRegistry;
-import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.ConnectionScopeBinaryStatementRegistry;
+import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.PostgreSQLBinaryStatementRegistry;
 import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.parse.PostgreSQLComParsePacket;
 import org.apache.shardingsphere.db.protocol.postgresql.packet.command.query.binary.parse.PostgreSQLParseCompletePacket;
 import org.apache.shardingsphere.infra.database.type.DatabaseTypeRegistry;
+import org.apache.shardingsphere.infra.parser.ShardingSphereSQLParserEngine;
 import org.apache.shardingsphere.proxy.backend.communication.jdbc.connection.BackendConnection;
 import org.apache.shardingsphere.proxy.backend.context.ProxyContext;
 import org.apache.shardingsphere.proxy.frontend.command.executor.CommandExecutor;
-import org.apache.shardingsphere.infra.parser.ShardingSphereSQLParserEngine;
 import org.apache.shardingsphere.sql.parser.sql.common.statement.SQLStatement;
+import org.apache.shardingsphere.sql.parser.sql.common.statement.dml.EmptyStatement;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -37,26 +37,23 @@ import java.util.Collections;
  */
 public final class PostgreSQLComParseExecutor implements CommandExecutor {
     
-    private final PostgreSQLComParsePacket packet;
-
-    private final String schemaName;
-    
-    private final ConnectionScopeBinaryStatementRegistry binaryStatementRegistry;
-    
     public PostgreSQLComParseExecutor(final PostgreSQLComParsePacket packet, final BackendConnection backendConnection) {
-        this.packet = packet;
-        schemaName = backendConnection.getSchemaName();
-        binaryStatementRegistry = BinaryStatementRegistry.getInstance().get(backendConnection.getConnectionId());
+        String schemaName = backendConnection.getSchemaName();
+        SQLStatement sqlStatement = parseSql(packet.getSql(), schemaName);
+        PostgreSQLBinaryStatementRegistry.getInstance().register(backendConnection.getConnectionId(), packet.getStatementId(), packet.getSql(), sqlStatement, packet.getBinaryStatementColumnTypes());
+    }
+    
+    private SQLStatement parseSql(final String sql, final String schemaName) {
+        if (sql.isEmpty()) {
+            return new EmptyStatement();
+        }
+        ShardingSphereSQLParserEngine sqlStatementParserEngine = new ShardingSphereSQLParserEngine(
+                DatabaseTypeRegistry.getTrunkDatabaseTypeName(ProxyContext.getInstance().getMetaDataContexts().getMetaData(schemaName).getResource().getDatabaseType()));
+        return sqlStatementParserEngine.parse(sql, true);
     }
     
     @Override
     public Collection<DatabasePacket<?>> execute() {
-        if (!packet.getSql().isEmpty()) {
-            ShardingSphereSQLParserEngine sqlStatementParserEngine = new ShardingSphereSQLParserEngine(
-                    DatabaseTypeRegistry.getTrunkDatabaseTypeName(ProxyContext.getInstance().getMetaDataContexts().getMetaData(schemaName).getResource().getDatabaseType()));
-            SQLStatement sqlStatement = sqlStatementParserEngine.parse(packet.getSql(), true);
-            binaryStatementRegistry.register(packet.getStatementId(), packet.getSql(), sqlStatement.getParameterCount(), packet.getBinaryStatementParameterTypes());
-        }
         return Collections.singletonList(new PostgreSQLParseCompletePacket());
     }
 }

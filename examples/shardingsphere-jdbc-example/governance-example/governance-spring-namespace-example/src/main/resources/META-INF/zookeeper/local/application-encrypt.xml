@@ -38,7 +38,7 @@
     
     <bean id="demo_ds" class="com.zaxxer.hikari.HikariDataSource" destroy-method="close">
         <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
-        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/demo_ds"/>
+        <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/demo_ds?serverTimezone=UTC&amp;useSSL=false&amp;useUnicode=true&amp;characterEncoding=UTF-8"/>
         <property name="username" value="root"/>
         <property name="password" value=""/>
     </bean>
@@ -57,11 +57,7 @@
         </encrypt:table>
     </encrypt:rule>
     
-    <governance:data-source id="encryptDataSource" data-source-names="demo_ds" reg-center-ref="regCenter" rule-refs="encryptRule">
-        <props>
-            <prop key="query-with-cipher-column">true</prop>
-        </props>
-    </governance:data-source>
+    <governance:data-source id="encryptDataSource" data-source-names="demo_ds" reg-center-ref="regCenter" rule-refs="encryptRule" />
     
     <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
         <property name="dataSource" ref="encryptDataSource" />

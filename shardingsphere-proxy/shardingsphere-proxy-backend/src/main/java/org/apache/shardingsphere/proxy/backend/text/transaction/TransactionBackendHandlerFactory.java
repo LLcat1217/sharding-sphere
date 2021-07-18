@@ -19,13 +19,17 @@ package org.apache.shardingsphere.proxy.backend.text.transaction;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import org.apache.shardingsphere.infra.binder.statement.SQLStatementContext;
 import org.apache.shardingsphere.proxy.backend.communication.jdbc.connection.BackendConnection;
 import org.apache.shardingsphere.proxy.backend.text.TextProtocolBackendHandler;
 import org.apache.shardingsphere.proxy.backend.text.data.impl.BroadcastDatabaseBackendHandler;
 import org.apache.shardingsphere.proxy.backend.text.skip.SkipBackendHandler;
 import org.apache.shardingsphere.sql.parser.sql.common.statement.tcl.BeginTransactionStatement;
 import org.apache.shardingsphere.sql.parser.sql.common.statement.tcl.CommitStatement;
+import org.apache.shardingsphere.sql.parser.sql.common.statement.tcl.ReleaseSavepointStatement;
 import org.apache.shardingsphere.sql.parser.sql.common.statement.tcl.RollbackStatement;
+import org.apache.shardingsphere.sql.parser.sql.common.statement.tcl.RollbackToSavepointStatement;
+import org.apache.shardingsphere.sql.parser.sql.common.statement.tcl.SavepointStatement;
 import org.apache.shardingsphere.sql.parser.sql.common.statement.tcl.SetAutoCommitStatement;
 import org.apache.shardingsphere.sql.parser.sql.common.statement.tcl.TCLStatement;
 import org.apache.shardingsphere.transaction.core.TransactionOperationType;
@@ -39,27 +43,38 @@ public final class TransactionBackendHandlerFactory {
     /**
      * New instance of backend handler.
      * 
-     * @param tclStatement TCL statement
+     * @param sqlStatementContext SQL statement context
      * @param sql SQL
      * @param backendConnection backend connection
      * @return backend handler
      */
-    public static TextProtocolBackendHandler newInstance(final TCLStatement tclStatement, final String sql, final BackendConnection backendConnection) {
+    public static TextProtocolBackendHandler newInstance(final SQLStatementContext<? extends TCLStatement> sqlStatementContext, final String sql, final BackendConnection backendConnection) {
+        TCLStatement tclStatement = sqlStatementContext.getSqlStatement();
         if (tclStatement instanceof BeginTransactionStatement) {
-            return new TransactionBackendHandler(TransactionOperationType.BEGIN, backendConnection);
+            return new TransactionBackendHandler(tclStatement, TransactionOperationType.BEGIN, backendConnection);
         }
         if (tclStatement instanceof SetAutoCommitStatement) {
             if (((SetAutoCommitStatement) tclStatement).isAutoCommit()) {
-                return backendConnection.getTransactionStatus().isInTransaction() ? new TransactionBackendHandler(TransactionOperationType.COMMIT, backendConnection) : new SkipBackendHandler();
+                return backendConnection.getTransactionStatus().isInTransaction()
+                        ? new TransactionBackendHandler(tclStatement, TransactionOperationType.COMMIT, backendConnection) : new SkipBackendHandler(tclStatement);
             }
-            return new TransactionBackendHandler(TransactionOperationType.BEGIN, backendConnection);
+            return new TransactionBackendHandler(tclStatement, TransactionOperationType.BEGIN, backendConnection);
+        }
+        if (tclStatement instanceof SavepointStatement) {
+            return new TransactionBackendHandler(tclStatement, TransactionOperationType.SAVEPOINT, backendConnection);
+        }
+        if (tclStatement instanceof ReleaseSavepointStatement) {
+            return new TransactionBackendHandler(tclStatement, TransactionOperationType.RELEASE_SAVEPOINT, backendConnection);
+        }
+        if (tclStatement instanceof RollbackToSavepointStatement) {
+            return new TransactionBackendHandler(tclStatement, TransactionOperationType.ROLLBACK_TO_SAVEPOINT, backendConnection);
         }
         if (tclStatement instanceof CommitStatement) {
-            return new TransactionBackendHandler(TransactionOperationType.COMMIT, backendConnection);
+            return new TransactionBackendHandler(tclStatement, TransactionOperationType.COMMIT, backendConnection);
         }
         if (tclStatement instanceof RollbackStatement) {
-            return new TransactionBackendHandler(TransactionOperationType.ROLLBACK, backendConnection);
+            return new TransactionBackendHandler(tclStatement, TransactionOperationType.ROLLBACK, backendConnection);
         }
-        return new BroadcastDatabaseBackendHandler(tclStatement, sql, backendConnection);
+        return new BroadcastDatabaseBackendHandler(sqlStatementContext, sql, backendConnection);
     }
 }

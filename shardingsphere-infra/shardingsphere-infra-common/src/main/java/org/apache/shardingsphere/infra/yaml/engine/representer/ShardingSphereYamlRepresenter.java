@@ -20,7 +20,7 @@ package org.apache.shardingsphere.infra.yaml.engine.representer;
 import org.apache.shardingsphere.infra.spi.ShardingSphereServiceLoader;
 import org.apache.shardingsphere.infra.yaml.engine.representer.processor.DefaultYamlTupleProcessor;
 import org.apache.shardingsphere.infra.yaml.engine.representer.processor.ShardingSphereYamlTupleProcessor;
-import org.apache.shardingsphere.infra.yaml.swapper.YamlRuleConfigurationSwapperEngine;
+import org.apache.shardingsphere.infra.yaml.config.swapper.YamlRuleConfigurationSwapperEngine;
 import org.yaml.snakeyaml.introspector.Property;
 import org.yaml.snakeyaml.nodes.NodeTuple;
 import org.yaml.snakeyaml.nodes.Tag;
@@ -42,7 +42,7 @@ public final class ShardingSphereYamlRepresenter extends Representer {
     @Override
     protected NodeTuple representJavaBeanProperty(final Object javaBean, final Property property, final Object propertyValue, final Tag customTag) {
         NodeTuple nodeTuple = super.representJavaBeanProperty(javaBean, property, propertyValue, customTag);
-        for (ShardingSphereYamlTupleProcessor each : ShardingSphereServiceLoader.newServiceInstances(ShardingSphereYamlTupleProcessor.class)) {
+        for (ShardingSphereYamlTupleProcessor each : ShardingSphereServiceLoader.getSingletonServiceInstances(ShardingSphereYamlTupleProcessor.class)) {
             if (property.getName().equals(each.getTupleName())) {
                 return each.process(nodeTuple);
             }

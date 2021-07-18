@@ -75,7 +75,7 @@ demo:
 
 ```
 /**
- * databaseType type:String values: MySQL,Oracle，PostgreSQL，SQL92，SQLServer
+ * databaseType type:String values: MySQL,Oracle,PostgreSQL,SQL92,SQLServer
  * sql type:String SQL to be parsed
  * useCache type:boolean whether use cache
  * @return parse tree
@@ -104,8 +104,8 @@ SQLStatement sqlStatement = sqlVisitorEngine.visit(tree);
  * useCache type:boolean whether use cache
  * @return String 
  */
-ParseTree tree = new SQLParserEngine(databaseType).parse(sql, useCache); 
-SQLVisitorEngine sqlVisitorEngine = new SQLVisitorEngine(databaseType, "FORMAT");
+ParseTree tree = new SQLParserEngine(databaseType).parse(sql, useCache);
+SQLVisitorEngine sqlVisitorEngine = new SQLVisitorEngine(databaseType, "FORMAT", new Properties());
 String formatedSql = sqlVisitorEngine.visit(tree);
 ```
 

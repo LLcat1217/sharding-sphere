@@ -18,7 +18,7 @@
 package org.apache.shardingsphere.infra.yaml.engine.constructor;
 
 import org.apache.shardingsphere.infra.spi.ShardingSphereServiceLoader;
-import org.apache.shardingsphere.infra.yaml.swapper.YamlRuleConfigurationSwapperEngine;
+import org.apache.shardingsphere.infra.yaml.config.swapper.YamlRuleConfigurationSwapperEngine;
 import org.yaml.snakeyaml.TypeDescription;
 import org.yaml.snakeyaml.constructor.Construct;
 import org.yaml.snakeyaml.constructor.Constructor;
@@ -42,7 +42,7 @@ public class ShardingSphereYamlConstructor extends Constructor {
     
     public ShardingSphereYamlConstructor(final Class<?> rootClass) {
         super(rootClass);
-        ShardingSphereServiceLoader.newServiceInstances(ShardingSphereYamlConstruct.class).forEach(each -> typeConstructs.put(each.getType(), each));
+        ShardingSphereServiceLoader.getSingletonServiceInstances(ShardingSphereYamlConstruct.class).forEach(each -> typeConstructs.put(each.getType(), each));
         YamlRuleConfigurationSwapperEngine.getYamlShortcuts().forEach((key, value) -> addTypeDescription(new TypeDescription(value, key)));
         this.rootClass = rootClass;
     }

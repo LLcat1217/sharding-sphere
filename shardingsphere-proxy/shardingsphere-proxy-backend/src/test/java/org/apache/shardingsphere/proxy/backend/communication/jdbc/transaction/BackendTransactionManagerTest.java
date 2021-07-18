@@ -17,8 +17,6 @@
 
 package org.apache.shardingsphere.proxy.backend.communication.jdbc.transaction;
 
-import java.lang.reflect.Field;
-import java.sql.SQLException;
 import lombok.SneakyThrows;
 import org.apache.shardingsphere.proxy.backend.communication.jdbc.connection.BackendConnection;
 import org.apache.shardingsphere.proxy.backend.context.ProxyContext;
@@ -32,8 +30,12 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.lang.reflect.Field;
+import java.sql.SQLException;
+
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -82,6 +84,7 @@ public final class BackendTransactionManagerTest {
         newBackendTransactionManager(TransactionType.LOCAL, false);
         backendTransactionManager.begin();
         verify(transactionStatus).setInTransaction(true);
+        verify(backendConnection).closeDatabaseCommunicationEngines(true);
         verify(backendConnection).closeConnections(false);
         verify(localTransactionManager).begin();
     }
@@ -143,6 +146,54 @@ public final class BackendTransactionManagerTest {
         verify(transactionStatus, times(0)).setInTransaction(false);
         verify(localTransactionManager, times(0)).rollback();
         verify(shardingTransactionManager, times(0)).rollback();
+    }
+    
+    @Test
+    public void assertSetSavepointForLocalTransaction() throws SQLException {
+        newBackendTransactionManager(TransactionType.LOCAL, true);
+        String savepointName = "JDBC_SAVEPOINT_0";
+        backendTransactionManager.setSavepoint(savepointName);
+        verify(localTransactionManager).setSavepoint(savepointName);
+    }
+    
+    @Test
+    public void assertSetSavepointWithoutTransaction() throws SQLException {
+        newBackendTransactionManager(TransactionType.LOCAL, false);
+        String savepointName = "JDBC_SAVEPOINT_0";
+        backendTransactionManager.setSavepoint(savepointName);
+        verify(localTransactionManager, never()).setSavepoint(savepointName);
+    }
+    
+    @Test
+    public void assertRollbackToSavepointForLocalTransaction() throws SQLException {
+        newBackendTransactionManager(TransactionType.LOCAL, true);
+        String savepointName = "JDBC_SAVEPOINT_0";
+        backendTransactionManager.rollbackTo(savepointName);
+        verify(localTransactionManager).rollbackTo(savepointName);
+    }
+    
+    @Test
+    public void assertRollbackToSavepointWithoutTransaction() throws SQLException {
+        newBackendTransactionManager(TransactionType.LOCAL, false);
+        String savepointName = "JDBC_SAVEPOINT_0";
+        backendTransactionManager.rollbackTo(savepointName);
+        verify(localTransactionManager, never()).rollbackTo(savepointName);
+    }
+    
+    @Test
+    public void assertReleaseSavepointForLocalTransaction() throws SQLException {
+        newBackendTransactionManager(TransactionType.LOCAL, true);
+        String savepointName = "JDBC_SAVEPOINT_0";
+        backendTransactionManager.releaseSavepoint(savepointName);
+        verify(localTransactionManager).releaseSavepoint(savepointName);
+    }
+    
+    @Test
+    public void assertReleaseSavepointWithoutTransaction() throws SQLException {
+        newBackendTransactionManager(TransactionType.LOCAL, false);
+        String savepointName = "JDBC_SAVEPOINT_0";
+        backendTransactionManager.releaseSavepoint(savepointName);
+        verify(localTransactionManager, never()).releaseSavepoint(savepointName);
     }
     
     private void newBackendTransactionManager(final TransactionType transactionType, final boolean inTransaction) {

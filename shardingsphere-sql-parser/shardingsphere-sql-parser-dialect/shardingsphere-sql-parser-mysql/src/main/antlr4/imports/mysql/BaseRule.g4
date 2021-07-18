@@ -636,7 +636,11 @@ columnName
 indexName
     : identifier
     ;
-    
+
+constraintName
+    : identifier
+    ;
+
 userIdentifierOrText
     : textOrIdentifier (AT_ textOrIdentifier)?
     ;
@@ -803,7 +807,12 @@ booleanPrimary
     | booleanPrimary SAFE_EQ_ predicate
     | booleanPrimary comparisonOperator predicate
     | booleanPrimary comparisonOperator (ALL | ANY) subquery
+    | booleanPrimary assignmentOperator predicate
     | predicate
+    ;
+    
+assignmentOperator
+    : EQ_ | ASSIGNMENT_
     ;
     
 comparisonOperator
@@ -885,7 +894,7 @@ overClause
     ;
     
 windowSpecification
-    : LP_ identifier? (PARTITION BY expr (COMMA_ expr)*)? orderByClause? frameClause? RP_
+    : identifier? (PARTITION BY expr (COMMA_ expr)*)? orderByClause? frameClause?
     ;
     
 frameClause
@@ -1093,6 +1102,7 @@ dataType
     | dataTypeName = (BOOL | BOOLEAN)
     | dataTypeName = CHAR fieldLength? charsetWithOptBinary?
     | (dataTypeName = NCHAR | dataTypeName = NATIONAL CHAR) fieldLength? BINARY?
+    | dataTypeName = SIGNED
     | dataTypeName = BINARY fieldLength?
     | (dataTypeName = CHAR VARYING | dataTypeName = VARCHAR) fieldLength charsetWithOptBinary?
     | (dataTypeName = NATIONAL VARCHAR | dataTypeName = NVARCHAR | dataTypeName = NCHAR VARCHAR | dataTypeName = NATIONAL CHAR VARYING | dataTypeName = NCHAR VARYING) fieldLength BINARY?
@@ -1100,6 +1110,7 @@ dataType
     | dataTypeName = YEAR fieldLength? fieldOptions?
     | dataTypeName = DATE
     | dataTypeName = TIME typeDatetimePrecision?
+    | dataTypeName = UNSIGNED
     | dataTypeName = TIMESTAMP typeDatetimePrecision?
     | dataTypeName = DATETIME typeDatetimePrecision?
     | dataTypeName = TINYBLOB

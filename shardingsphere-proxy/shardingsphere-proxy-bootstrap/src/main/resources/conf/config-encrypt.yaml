@@ -32,6 +32,7 @@
 #  idleTimeoutMilliseconds: 60000
 #  maxLifetimeMilliseconds: 1800000
 #  maxPoolSize: 50
+#  minPoolSize: 1
 #
 #rules:
 #- !ENCRYPT
@@ -69,6 +70,7 @@
 #  idleTimeoutMilliseconds: 60000
 #  maxLifetimeMilliseconds: 1800000
 #  maxPoolSize: 50
+#  minPoolSize: 1
 #
 #rules:
 #- !ENCRYPT

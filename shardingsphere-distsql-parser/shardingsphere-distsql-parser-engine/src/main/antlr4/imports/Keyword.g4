@@ -27,40 +27,12 @@ ADD
     : A D D
     ;
 
-CREATE
-    : C R E A T E
-    ;
-
-ALTER
-    : A L T E R
-    ;
-
-MODIFY
-    : M O D I F Y
-    ;
-
 DROP
     : D R O P
     ;
 
 SHOW
     : S H O W
-    ;
-
-START
-    : S T A R T
-    ;
-
-STOP
-    : S T O P
-    ;
-
-RESET
-    : R E S E T
-    ;
-
-CHECK
-    : C H E C K
     ;
 
 RESOURCE
@@ -71,66 +43,38 @@ RESOURCES
     : R E S O U R C E S
     ;
 
-RULE
-    :  R U L E
-    ;
-
 FROM
     : F R O M
     ;
 
-SHARDING
-    : S H A R D I N G
-    ;
-   
-REPLICA_QUERY
-    : R E P L I C A UL_ Q U E R Y
+URL
+    : U R L
     ;
 
-ENCRYPT
-    : E N C R Y P T
+HOST
+    : H O S T
     ;
 
-SHADOW
-    : S H A D O W
+PORT
+    : P O R T
     ;
 
-PRIMARY
-    : P R I M A R Y
+DB
+    : D B
     ;
 
-REPLICA
-    : R E P L I C A
+USER
+    : U S E R
     ;
 
-BINDING_TABLE
-    : B I N D I N G UL_ T A B L E
+PASSWORD
+    : P A S S W O R D
     ;
 
-BROADCAST_TABLES
-    : B R O A D C A S T UL_ T A B L E S
+NAME
+    : N A M E
     ;
 
-GENERATED_KEY
-    : G E N E R A T E D UL_ K E Y
-    ;
-
-DEFAULT_TABLE_STRATEGY
-    : D E F A U L T UL_ T A B L E UL_ S T R A T E G Y
-    ;
-
-SCALING
-    : S C A L I N G
-    ;
-
-JOB
-    : J O B
-    ;
-
-LIST
-    : L I S T
-    ;
-
-STATUS
-    : S T A T U S
+PROPERTIES
+    : P R O P E R T I E S
     ;

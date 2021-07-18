@@ -20,7 +20,7 @@ package org.apache.shardingsphere.proxy.converter;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.apache.shardingsphere.distsql.parser.segment.DataSourceSegment;
-import org.apache.shardingsphere.distsql.parser.statement.rdl.create.impl.AddResourceStatement;
+import org.apache.shardingsphere.distsql.parser.statement.rdl.create.AddResourceStatement;
 import org.apache.shardingsphere.infra.config.datasource.DataSourceParameter;
 import org.apache.shardingsphere.infra.database.type.DatabaseType;
 import org.apache.shardingsphere.proxy.config.yaml.YamlDataSourceParameter;
@@ -53,13 +53,17 @@ public final class AddResourcesStatementConverter {
             dataSource.setMaxPoolSize(parameter.getMaxPoolSize());
             dataSource.setConnectionTimeoutMilliseconds(parameter.getConnectionTimeoutMilliseconds());
             dataSource.setIdleTimeoutMilliseconds(parameter.getIdleTimeoutMilliseconds());
-            dataSource.setMaintenanceIntervalMilliseconds(parameter.getMaintenanceIntervalMilliseconds());
+            dataSource.setMaxLifetimeMilliseconds(parameter.getMaxLifetimeMilliseconds());
+            dataSource.setCustomPoolProps(each.getProperties());
             result.put(each.getName(), dataSource);
         }
         return result;
     }
     
     private static String getURL(final DatabaseType databaseType, final DataSourceSegment dataSourceSegment) {
+        if (null != dataSourceSegment.getUrl()) {
+            return dataSourceSegment.getUrl();
+        }
         return String.format("%s//%s:%s/%s", databaseType.getJdbcUrlPrefixes().iterator().next(), dataSourceSegment.getHostName(), dataSourceSegment.getPort(), dataSourceSegment.getDb());
     }
 }

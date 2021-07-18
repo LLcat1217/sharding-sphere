@@ -18,6 +18,7 @@
 package org.apache.shardingsphere.driver.executor.batch;
 
 import lombok.SneakyThrows;
+import org.apache.shardingsphere.infra.executor.kernel.model.ExecutionGroupContext;
 import org.apache.shardingsphere.infra.executor.sql.execute.engine.driver.jdbc.JDBCExecutor;
 import org.apache.shardingsphere.driver.executor.AbstractBaseExecutorTest;
 import org.apache.shardingsphere.infra.binder.segment.table.TablesContext;
@@ -103,17 +104,17 @@ public final class BatchPreparedStatementExecutorTest extends AbstractBaseExecut
         verify(preparedStatement2).executeBatch();
     }
     
-    @Test
+    @Test(expected = SQLException.class)
     public void assertExecuteBatchForSinglePreparedStatementFailure() throws SQLException {
         PreparedStatement preparedStatement = getPreparedStatement();
         SQLException ex = new SQLException("");
         when(preparedStatement.executeBatch()).thenThrow(ex);
         setExecutionGroups(Collections.singletonList(preparedStatement));
-        assertThat(actual.executeBatch(sqlStatementContext), is(new int[] {0, 0}));
+        actual.executeBatch(sqlStatementContext);
         verify(preparedStatement).executeBatch();
     }
     
-    @Test
+    @Test(expected = SQLException.class)
     public void assertExecuteBatchForMultiplePreparedStatementsFailure() throws SQLException {
         PreparedStatement preparedStatement1 = getPreparedStatement();
         PreparedStatement preparedStatement2 = getPreparedStatement();
@@ -121,7 +122,7 @@ public final class BatchPreparedStatementExecutorTest extends AbstractBaseExecut
         when(preparedStatement1.executeBatch()).thenThrow(ex);
         when(preparedStatement2.executeBatch()).thenThrow(ex);
         setExecutionGroups(Arrays.asList(preparedStatement1, preparedStatement2));
-        assertThat(actual.executeBatch(sqlStatementContext), is(new int[] {0, 0}));
+        actual.executeBatch(sqlStatementContext);
         verify(preparedStatement1).executeBatch();
         verify(preparedStatement2).executeBatch();
     }
@@ -144,9 +145,9 @@ public final class BatchPreparedStatementExecutorTest extends AbstractBaseExecut
     
     @SneakyThrows(ReflectiveOperationException.class)
     private void setFields(final Collection<ExecutionGroup<JDBCExecutionUnit>> executionGroups, final Collection<BatchExecutionUnit> batchExecutionUnits) {
-        Field field = BatchPreparedStatementExecutor.class.getDeclaredField("executionGroups");
+        Field field = BatchPreparedStatementExecutor.class.getDeclaredField("executionGroupContext");
         field.setAccessible(true);
-        field.set(actual, executionGroups);
+        field.set(actual, new ExecutionGroupContext<>(executionGroups));
         field = BatchPreparedStatementExecutor.class.getDeclaredField("batchExecutionUnits");
         field.setAccessible(true);
         field.set(actual, batchExecutionUnits);
